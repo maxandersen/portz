@@ -48,25 +48,15 @@ public class Renderer {
 
         var rows = new ArrayList<Row>();
         for (var e : entries) {
-            String fw = e.process().framework() != null
-                    ? e.process().framework().emoji() + " " + e.process().framework().displayName()
-                    : "-";
-            ProcessStatus st = e.process().status();
-            Style statusStyle = switch (st) {
-                case HEALTHY -> GREEN;
-                case ORPHANED -> YELLOW;
-                case ZOMBIE -> RED;
-            };
-
             rows.add(Row.from(
                     Cell.from(":" + e.port()).style(CYAN),
-                    Cell.from(shortenProcessName(e.process().name())),
+                    Cell.from(nameOf(e.process())),
                     Cell.from(String.valueOf(e.pid())),
                     Cell.from(tildeHome(e.process().command())).style(DIM),
-                    Cell.from(e.process().projectName() != null ? e.process().projectName() : "-"),
-                    Cell.from(fw),
+                    Cell.from(projectOf(e.process())),
+                    Cell.from(frameworkOf(e.process())),
                     Cell.from(e.process().uptime()),
-                    Cell.from(st.rawSymbol()).style(statusStyle)
+                    statusCell(e.process().status())
             ));
         }
 
@@ -105,7 +95,7 @@ public class Renderer {
 
         var header = Row.from(
                 Cell.from("PID").style(HEADER),
-                Cell.from("PROCESS").style(HEADER),
+                Cell.from("NAME").style(HEADER),
                 Cell.from("PROJECT").style(HEADER),
                 Cell.from("UPTIME").style(HEADER),
                 Cell.from("STATUS").style(HEADER)
@@ -113,18 +103,12 @@ public class Renderer {
 
         var rows = new ArrayList<Row>();
         for (var e : orphans) {
-            ProcessStatus st = e.process().status();
-            Style statusStyle = switch (st) {
-                case HEALTHY -> GREEN;
-                case ORPHANED -> YELLOW;
-                case ZOMBIE -> RED;
-            };
             rows.add(Row.from(
                     Cell.from(String.valueOf(e.pid())),
-                    Cell.from(e.process().name()),
-                    Cell.from(e.process().projectName() != null ? e.process().projectName() : "-"),
+                    Cell.from(nameOf(e.process())),
+                    Cell.from(projectOf(e.process())),
                     Cell.from(e.process().uptime()),
-                    Cell.from(st.rawSymbol()).style(statusStyle)
+                    statusCell(e.process().status())
             ));
         }
 
@@ -147,6 +131,31 @@ public class Renderer {
         var buffer = Buffer.empty(area);
         table.render(area, buffer, new TableState());
         inv.println(buffer.toAnsiString());
+    }
+
+    // === Shared cell helpers for consistent formatting across tables ===
+
+    static String nameOf(ProcessInfo p) {
+        return shortenProcessName(p.name());
+    }
+
+    static String projectOf(ProcessInfo p) {
+        return p.projectName() != null ? p.projectName() : "-";
+    }
+
+    static String frameworkOf(ProcessInfo p) {
+        return p.framework() != null
+                ? p.framework().emoji() + " " + p.framework().displayName()
+                : "-";
+    }
+
+    static Cell statusCell(ProcessStatus st) {
+        Style style = switch (st) {
+            case HEALTHY -> GREEN;
+            case ORPHANED -> YELLOW;
+            case ZOMBIE -> RED;
+        };
+        return Cell.from(st.rawSymbol()).style(style);
     }
 
     private static String tildeHome(String s) {

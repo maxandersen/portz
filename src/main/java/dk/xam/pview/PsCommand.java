@@ -64,28 +64,25 @@ public class PsCommand implements Command<CommandInvocation> {
 
             var header = Row.from(
                     Cell.from("PID").style(HEADER),
-                    Cell.from("PROCESS").style(HEADER),
+                    Cell.from("NAME").style(HEADER),
                     Cell.from("CPU%").style(HEADER),
                     Cell.from("MEM").style(HEADER),
                     Cell.from("PROJECT").style(HEADER),
                     Cell.from("FRAMEWORK").style(HEADER),
                     Cell.from("UPTIME").style(HEADER),
-                    Cell.from("WHAT").style(HEADER)
+                    Cell.from("COMMAND").style(HEADER)
             );
 
             var rows = new ArrayList<Row>();
             for (var e : nonDocker) {
                 double cpu = cpuMap.getOrDefault(e.pid(), 0.0);
-                String fw = e.process().framework() != null
-                        ? e.process().framework().emoji() + " " + e.process().framework().displayName()
-                        : "-";
                 rows.add(Row.from(
                         Cell.from(String.valueOf(e.pid())),
-                        Cell.from(e.process().name()),
+                        Cell.from(Renderer.nameOf(e.process())),
                         Cell.from("%.1f".formatted(cpu)),
                         Cell.from("%dM".formatted(e.process().memoryKb() / 1024)),
-                        Cell.from(e.process().projectName() != null ? e.process().projectName() : "-"),
-                        Cell.from(fw),
+                        Cell.from(Renderer.projectOf(e.process())),
+                        Cell.from(Renderer.frameworkOf(e.process())),
                         Cell.from(e.process().uptime()),
                         Cell.from(summarizeCommand(e.process().command())).style(DIM)
                 ));
