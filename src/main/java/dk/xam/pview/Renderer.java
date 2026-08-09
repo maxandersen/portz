@@ -87,7 +87,7 @@ public class Renderer {
                 .block(Block.builder().borders(dev.tamboui.widgets.block.Borders.ALL).borderType(BorderType.ROUNDED).build())
                 .build();
 
-        int tableHeight = rows.size() + 3; // rows + header + top/bottom borders
+        int tableHeight = rows.size() + 3; // top border + header + rows + bottom border
         var area = Rect.of(width, tableHeight);
         var buffer = Buffer.empty(area);
         table.render(area, buffer, new TableState());
@@ -131,11 +131,18 @@ public class Renderer {
         var table = Table.builder()
                 .header(header)
                 .rows(rows)
+                .widths(
+                        Constraint.length(7),    // PID
+                        Constraint.length(12),   // PROCESS
+                        Constraint.fill(1),      // PROJECT
+                        Constraint.length(8),    // UPTIME
+                        Constraint.length(6)     // STATUS
+                )
                 .columnSpacing(1)
                 .block(Block.builder().borders(dev.tamboui.widgets.block.Borders.ALL).borderType(BorderType.ROUNDED).build())
                 .build();
 
-        int tableHeight = rows.size() + 4;
+        int tableHeight = rows.size() + 3;
         var area = Rect.of(width, tableHeight);
         var buffer = Buffer.empty(area);
         table.render(area, buffer, new TableState());

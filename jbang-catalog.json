@@ -1,0 +1,8 @@
+{
+  "aliases": {
+    "pview": {
+      "script-ref": "target/quarkus-app/quarkus-run.jar",
+      "enable-preview": false
+    }
+  }
+}
