@@ -1,7 +1,6 @@
 package dk.xam.pview;
 
-import dev.tamboui.backend.aesh.AeshBackend;
-import dev.tamboui.inline.InlineDisplay;
+import dev.tamboui.buffer.Buffer;
 import dev.tamboui.layout.Constraint;
 import dev.tamboui.layout.Layout;
 import dev.tamboui.layout.Rect;
@@ -61,7 +60,6 @@ public class DetailView {
                 .build();
 
         // === Command table ===
-        // Split command into one arg per line for readability
         var cmdRows = new ArrayList<Row>();
         for (String arg : proc.command().split("\\s+")) {
             cmdRows.add(Row.from(Cell.from(arg).style(DIM)));
@@ -74,37 +72,20 @@ public class DetailView {
                 .block(Block.builder().borders(Borders.ALL).borderType(BorderType.ROUNDED).build())
                 .build();
 
-        // Render via InlineDisplay
-        int infoHeight = infoRows.size() + 2; // rows + top/bottom border
-        int cmdHeight = cmdRows.size() + 3;   // rows + header + top/bottom border
+        // Render to buffer with detected terminal width
+        int infoHeight = infoRows.size() + 2;
+        int cmdHeight = cmdRows.size() + 3;
         int totalHeight = infoHeight + cmdHeight;
+        int width = Renderer.detectTerminalWidth();
 
-        try {
-            // WORKAROUND: quarkusio/quarkus#55935
-            var backend = new AeshBackend();
-            var display = InlineDisplay.withBackend(totalHeight, backend);
-            display.render((area, buffer) -> {
-                var areas = Layout.vertical()
-                        .constraints(Constraint.length(infoHeight), Constraint.length(cmdHeight))
-                        .split(area);
-                infoTable.render(areas.get(0), buffer, new TableState());
-                cmdTable.render(areas.get(1), buffer, new TableState());
-            });
-            display.release();
-            // ponytail: don't close backend — quarkus-aesh owns the terminal.
-            // release() is enough to move cursor out of render area.
-        } catch (Exception _) {
-            // Fallback
-            var infoArea = Rect.of(120, infoHeight);
-            var infoBuf = dev.tamboui.buffer.Buffer.empty(infoArea);
-            infoTable.render(infoArea, infoBuf, new TableState());
-            inv.println(infoBuf.toAnsiString());
-
-            var cmdArea = Rect.of(120, cmdHeight);
-            var cmdBuf = dev.tamboui.buffer.Buffer.empty(cmdArea);
-            cmdTable.render(cmdArea, cmdBuf, new TableState());
-            inv.println(cmdBuf.toAnsiString());
-        }
+        var area = Rect.of(width, totalHeight);
+        var buffer = Buffer.empty(area);
+        var areas = Layout.vertical()
+                .constraints(Constraint.length(infoHeight), Constraint.length(cmdHeight))
+                .split(area);
+        infoTable.render(areas.get(0), buffer, new TableState());
+        cmdTable.render(areas.get(1), buffer, new TableState());
+        inv.println(buffer.toAnsiString());
 
         inv.println("");
         String prompt = Ansi.markup("[yellow]Kill this process?[/] [dim](PID %d)[/] [[y/N]]: ".formatted(proc.pid()));

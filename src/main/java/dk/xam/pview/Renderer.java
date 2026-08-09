@@ -133,21 +133,8 @@ public class Renderer {
      */
     static void renderInline(Table table, int rowCount, CommandInvocation inv) {
         int tableHeight = rowCount + 3; // top border + header + rows + bottom border
-        try {
-            // WORKAROUND: quarkusio/quarkus#55935
-            // quarkus-aesh Shell.connection() returns null and terminal size is hardcoded
-            // to 120x40 in AeshStreamConnection. Create our own AeshBackend to get real
-            // terminal size. Use release() not close() to avoid fighting with
-            // quarkus-aesh's terminal session ownership.
-            var backend = new AeshBackend();
-            var display = InlineDisplay.withBackend(tableHeight, backend);
-            display.render((area, buffer) -> table.render(area, buffer, new TableState()));
-            display.release();
-            // ponytail: don't close backend — quarkus-aesh owns the terminal.
-        } catch (Exception e) {
-            // Fallback: render to buffer manually (no real terminal available)
-            renderToBuffer(table, tableHeight, 120, inv);
-        }
+        int width = detectTerminalWidth();
+        renderToBuffer(table, tableHeight, width, inv);
     }
 
     /** Fallback when no aesh Connection is available (e.g. tests). */
@@ -198,6 +185,23 @@ public class Renderer {
 
     private static String tildeHome(String s) {
         return HOME != null && s.startsWith(HOME) ? "~" + s.substring(HOME.length()) : s;
+    }
+
+    /**
+     * Detect real terminal width.
+     * WORKAROUND: quarkusio/quarkus#55935 — Shell.connection() returns null
+     * and terminal size is hardcoded to 120x40. Create a temporary AeshBackend
+     * just to read size, close immediately to avoid SIGINT handler conflicts.
+     */
+    static int detectTerminalWidth() {
+        try {
+            var backend = new AeshBackend();
+            int width = backend.size().width();
+            backend.close();
+            return width > 0 ? width : 120;
+        } catch (Exception _) {
+            return 120;
+        }
     }
 
     private static String shortenProcessName(String name) {
