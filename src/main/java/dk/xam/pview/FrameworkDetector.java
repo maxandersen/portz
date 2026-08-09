@@ -33,7 +33,7 @@ public class FrameworkDetector {
             if (content.contains("\"express\"")) return Framework.EXPRESS;
             if (content.contains("\"fastify\"")) return Framework.FASTIFY;
             if (content.contains("\"nuxt\"")) return Framework.NUXT;
-        } catch (Exception ignored) {}
+        } catch (Exception _) {}
         return null;
     }
 
@@ -46,7 +46,7 @@ public class FrameworkDetector {
                 if (content.contains("spring-boot")) return Framework.SPRING_BOOT;
                 if (content.contains("quarkus")) return Framework.QUARKUS;
                 if (content.contains("micronaut")) return Framework.MICRONAUT;
-            } catch (Exception ignored) {}
+            } catch (Exception _) {}
         }
         // Check build.gradle
         Path gradle = dir.resolve("build.gradle");
@@ -57,7 +57,7 @@ public class FrameworkDetector {
                 if (content.contains("spring-boot")) return Framework.SPRING_BOOT;
                 if (content.contains("quarkus")) return Framework.QUARKUS;
                 if (content.contains("micronaut")) return Framework.MICRONAUT;
-            } catch (Exception ignored) {}
+            } catch (Exception _) {}
         }
         return null;
     }

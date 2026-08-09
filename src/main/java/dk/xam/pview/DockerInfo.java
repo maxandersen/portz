@@ -62,7 +62,7 @@ public class DockerInfo {
         while (matcher.find()) {
             try {
                 mappings.add(new PortMapping(Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2))));
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException _) {}
         }
         return mappings;
     }
