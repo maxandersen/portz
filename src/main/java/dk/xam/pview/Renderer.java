@@ -130,15 +130,17 @@ public class Renderer {
     static void renderInline(Table table, int rowCount, CommandInvocation inv) {
         int tableHeight = rowCount + 3; // top border + header + rows + bottom border
         try {
-            // Create our own AeshBackend — it reads terminal size directly.
-            // Using the Connection from CommandInvocation can report wrong size
-            // because quarkus-aesh may have already altered the terminal state.
+            // ponytail: quarkus-aesh uses AeshStreamConnection with hardcoded 120x40 size
+            // and Shell.connection() returns null. Create our own AeshBackend to get real
+            // terminal size, but use InlineDisplay.release() to avoid closing the terminal
+            // (quarkus-aesh owns it).
             var backend = new AeshBackend();
-            try (var display = InlineDisplay.withBackend(tableHeight, backend)) {
-                display.render((area, buffer) -> table.render(area, buffer, new TableState()));
-            }
+            var display = InlineDisplay.withBackend(tableHeight, backend);
+            display.render((area, buffer) -> table.render(area, buffer, new TableState()));
+            display.release();
+            // Don't close backend — it would fight with quarkus-aesh's terminal
         } catch (Exception e) {
-            // Fallback: render to buffer manually
+            // Fallback: render to buffer manually (no real terminal available)
             renderToBuffer(table, tableHeight, 120, inv);
         }
     }
