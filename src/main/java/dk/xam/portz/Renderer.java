@@ -4,6 +4,7 @@ import dev.tamboui.backend.aesh.AeshBackend;
 import dev.tamboui.inline.InlineDisplay;
 import dev.tamboui.layout.Constraint;
 import dev.tamboui.style.Color;
+import dev.tamboui.text.CharWidth;
 import dev.tamboui.style.Style;
 import dev.tamboui.text.Text;
 import dev.tamboui.widgets.block.Block;
@@ -212,7 +213,7 @@ public class Renderer {
      */
     static int maxCol(List<PortEntry> entries, java.util.function.Function<PortEntry, String> fn, int headerLen) {
         int max = headerLen;
-        for (var e : entries) max = Math.max(max, fn.apply(e).length());
+        for (var e : entries) max = Math.max(max, CharWidth.of(fn.apply(e)));
         return max;
     }
 
