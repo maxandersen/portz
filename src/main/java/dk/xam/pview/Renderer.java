@@ -64,13 +64,13 @@ public class Renderer {
                 .header(header)
                 .rows(rows)
                 .widths(
-                        Constraint.length(7),    // PORT
-                        Constraint.length(14),   // NAME
-                        Constraint.length(6),    // PID
-                        Constraint.fill(1),      // COMMAND - takes remaining space
-                        Constraint.length(18),   // PROJECT
-                        Constraint.length(14),   // FRAMEWORK
-                        Constraint.length(8),    // UPTIME
+                        Constraint.length(maxCol(entries, e -> ":" + e.port(), 4)),
+                        Constraint.length(maxCol(entries, e -> nameOf(e.process()), 4)),
+                        Constraint.length(maxCol(entries, e -> String.valueOf(e.pid()), 3)),
+                        Constraint.fill(1),      // COMMAND — takes remaining space
+                        Constraint.length(maxCol(entries, e -> projectOf(e.process()), 7)),
+                        Constraint.length(maxCol(entries, e -> frameworkOf(e.process()), 9)),
+                        Constraint.length(maxCol(entries, e -> e.process().uptime(), 6)),
                         Constraint.length(6)     // STATUS
                 )
                 .columnSpacing(1)
@@ -116,10 +116,10 @@ public class Renderer {
                 .header(header)
                 .rows(rows)
                 .widths(
-                        Constraint.length(7),    // PID
-                        Constraint.length(12),   // PROCESS
+                        Constraint.length(maxCol(orphans, e -> String.valueOf(e.pid()), 3)),
+                        Constraint.length(maxCol(orphans, e -> nameOf(e.process()), 4)),
                         Constraint.fill(1),      // PROJECT
-                        Constraint.length(8),    // UPTIME
+                        Constraint.length(maxCol(orphans, e -> e.process().uptime(), 6)),
                         Constraint.length(6)     // STATUS
                 )
                 .columnSpacing(1)
@@ -131,6 +131,13 @@ public class Renderer {
         var buffer = Buffer.empty(area);
         table.render(area, buffer, new TableState());
         inv.println(buffer.toAnsiString());
+    }
+
+    /** Compute column width: max of header label and cell content, with a floor. */
+    static int maxCol(List<PortEntry> entries, java.util.function.Function<PortEntry, String> fn, int floor) {
+        int max = floor;
+        for (var e : entries) max = Math.max(max, fn.apply(e).length());
+        return max;
     }
 
     // === Shared cell helpers for consistent formatting across tables ===

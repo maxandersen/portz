@@ -108,13 +108,13 @@ public class PsCommand implements Command<CommandInvocation> {
                     .rows(rows)
                     .widths(
                             Constraint.length(7),    // PID
-                            Constraint.length(10),   // PROCESS
+                            Constraint.min(6),       // NAME
                             Constraint.length(5),    // CPU%
                             Constraint.length(6),    // MEM
-                            Constraint.length(18),   // PROJECT
-                            Constraint.length(14),   // FRAMEWORK
+                            Constraint.min(7),       // PROJECT
+                            Constraint.min(9),       // FRAMEWORK
                             Constraint.length(8),    // UPTIME
-                            Constraint.fill(1)       // WHAT
+                            Constraint.fill(1)       // COMMAND
                     )
                     .columnSpacing(1)
                     .block(Block.builder().borders(Borders.ALL).borderType(BorderType.ROUNDED).build())
