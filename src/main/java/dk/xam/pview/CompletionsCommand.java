@@ -9,7 +9,7 @@ import org.aesh.command.option.Argument;
 import org.aesh.util.completer.ShellCompletionGenerator;
 import org.aesh.util.completer.ShellCompletionGenerator.ShellType;
 
-@CommandDefinition(name = "completions", description = "Generate shell completion script")
+@CommandDefinition(name = "completion", description = "Generate shell completion script")
 public class CompletionsCommand implements Command<CommandInvocation> {
 
     @Argument(description = "Target shell: bash, zsh, fish, or pwsh", defaultValue = {"bash"})
@@ -32,30 +32,30 @@ public class CompletionsCommand implements Command<CommandInvocation> {
                 case BASH -> """
                         
                         # To use temporarily:
-                        #   source <(ports completions bash)
+                        #   source <(ports completion bash)
                         # To install permanently:
-                        #   ports completions bash > ~/.local/share/bash-completion/completions/ports
+                        #   ports completion bash > ~/.local/share/bash-completion/completions/ports
                         """;
                 case ZSH -> """
                         
                         # To use temporarily:
-                        #   source <(ports completions zsh)
+                        #   source <(ports completion zsh)
                         # To install permanently:
-                        #   ports completions zsh > ~/.zsh/completions/_ports && compinit
+                        #   ports completion zsh > ~/.zsh/completions/_ports && compinit
                         """;
                 case FISH -> """
                         
                         # To use temporarily:
-                        #   ports completions fish | source
+                        #   ports completion fish | source
                         # To install permanently:
-                        #   ports completions fish > ~/.config/fish/completions/ports.fish
+                        #   ports completion fish > ~/.config/fish/completions/ports.fish
                         """;
                 case PWSH -> """
                         
                         # To use temporarily:
-                        #   ports completions pwsh | Invoke-Expression
+                        #   ports completion pwsh | Invoke-Expression
                         # To install permanently:
-                        #   ports completions pwsh >> $PROFILE
+                        #   ports completion pwsh >> $PROFILE
                         """;
             };
             System.err.print(hint);
