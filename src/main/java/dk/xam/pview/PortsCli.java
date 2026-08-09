@@ -17,6 +17,10 @@ public class PortsCli implements Command<CommandInvocation> {
     @Option(name = "port", shortName = 'p', description = "Port number to inspect in detail")
     Integer port;
 
+    @Option(name = "group", hasValue = false, defaultValue = "true", negatable = true,
+            description = "Group ports by process (default: true, use --no-group to expand)")
+    boolean group;
+
     @Override
     public CommandResult execute(CommandInvocation inv) {
         try {
@@ -24,7 +28,7 @@ public class PortsCli implements Command<CommandInvocation> {
                 DetailView.show(port, inv);
             } else {
                 var entries = Collector.collectAll(showAll);
-                Renderer.renderPortsTable(entries, showAll, inv);
+                Renderer.renderPortsTable(entries, showAll, group, inv);
             }
             return CommandResult.SUCCESS;
         } catch (Exception e) {

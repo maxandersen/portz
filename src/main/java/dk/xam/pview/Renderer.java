@@ -3,6 +3,7 @@ package dk.xam.pview;
 import dev.tamboui.backend.aesh.AeshBackend;
 import dev.tamboui.inline.InlineDisplay;
 import dev.tamboui.layout.Constraint;
+import dev.tamboui.text.Text;
 import dev.tamboui.style.Color;
 import dev.tamboui.style.Style;
 import dev.tamboui.widgets.block.Block;
@@ -28,7 +29,7 @@ public class Renderer {
     private static final Style DIM = Style.EMPTY.dim();
     private static final Style HEADER = Style.EMPTY.bold();
 
-    public static void renderPortsTable(List<PortEntry> entries, boolean showAll, CommandInvocation inv) {
+    public static void renderPortsTable(List<PortEntry> entries, boolean showAll, boolean group, CommandInvocation inv) {
         if (entries.isEmpty()) {
             if (showAll) {
                 inv.println(Ansi.markup("[yellow]No listening ports found.[/]"));
@@ -50,17 +51,43 @@ public class Renderer {
         );
 
         var rows = new ArrayList<Row>();
-        for (var e : entries) {
-            rows.add(Row.from(
-                    Cell.from(":" + e.port()).style(CYAN),
-                    Cell.from(nameOf(e.process())),
-                    Cell.from(String.valueOf(e.pid())),
-                    Cell.from(tildeHome(e.process().command())).style(DIM),
-                    Cell.from(projectOf(e.process())),
-                    Cell.from(frameworkOf(e.process())),
-                    Cell.from(e.process().uptime()),
-                    statusCell(e.process().status())
-            ));
+        int totalLines = 0;
+
+        if (group) {
+            // Group by PID, preserving order of first (lowest) port
+            var grouped = new java.util.LinkedHashMap<Long, List<PortEntry>>();
+            for (var e : entries) {
+                grouped.computeIfAbsent(e.pid(), _ -> new ArrayList<>()).add(e);
+            }
+            for (var g : grouped.values()) {
+                var first = g.getFirst();
+                String ports = g.stream().map(e -> ":" + e.port()).collect(java.util.stream.Collectors.joining("\n"));
+                rows.add(Row.from(
+                        Cell.from(Text.from(ports)).style(CYAN),
+                        Cell.from(nameOf(first.process())),
+                        Cell.from(String.valueOf(first.pid())),
+                        Cell.from(tildeHome(first.process().command())).style(DIM),
+                        Cell.from(projectOf(first.process())),
+                        Cell.from(frameworkOf(first.process())),
+                        Cell.from(first.process().uptime()),
+                        statusCell(first.process().status())
+                ));
+                totalLines += g.size();
+            }
+        } else {
+            for (var e : entries) {
+                rows.add(Row.from(
+                        Cell.from(":" + e.port()).style(CYAN),
+                        Cell.from(nameOf(e.process())),
+                        Cell.from(String.valueOf(e.pid())),
+                        Cell.from(tildeHome(e.process().command())).style(DIM),
+                        Cell.from(projectOf(e.process())),
+                        Cell.from(frameworkOf(e.process())),
+                        Cell.from(e.process().uptime()),
+                        statusCell(e.process().status())
+                ));
+                totalLines++;
+            }
         }
 
         var table = Table.builder()
@@ -80,12 +107,16 @@ public class Renderer {
                 .block(Block.builder().borders(Borders.ALL).borderType(BorderType.ROUNDED).build())
                 .build();
 
-        renderInline(table, rows.size(), inv);
+        renderInline(table, totalLines, inv);
 
         // Footer
         String filter = showAll ? "" : " · [dim]--all to show everything[/]";
-        inv.println(Ansi.markup("[cyan]%d[/] %s active%s".formatted(
-                entries.size(), entries.size() == 1 ? "port" : "ports", filter)));
+        int portCount = entries.size();
+        int processCount = rows.size();
+        String summary = portCount == processCount
+                ? "[cyan]%d[/] %s".formatted(portCount, portCount == 1 ? "port" : "ports")
+                : "[cyan]%d[/] ports across [cyan]%d[/] processes".formatted(portCount, processCount);
+        inv.println(Ansi.markup(summary + " active" + filter));
         inv.println(Ansi.markup("Run [dim]ports <number>[/] for details"));
     }
 

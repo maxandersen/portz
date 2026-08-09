@@ -55,7 +55,7 @@ public class WatchCommand implements Command<CommandInvocation> {
                     inv.print("\033[2J\033[H");
                 }
 
-                Renderer.renderPortsTable(entries, showAll, inv);
+                Renderer.renderPortsTable(entries, showAll, true, inv);
                 previousPorts = currentPorts;
                 first = false;
                 Thread.sleep(1000);
