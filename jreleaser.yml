@@ -1,8 +1,17 @@
 project:
   name: portz
+  version: earlyaccess
   description: A beautiful CLI tool to inspect and manage processes listening on your machine's ports
   license: MIT
+  copyright: 2026 Max Rydahl Andersen
+  authors:
+    - Max Rydahl Andersen
+  links:
+    homepage: https://github.com/maxandersen/portz
+    documentation: https://github.com/maxandersen/portz
   java:
+    groupId: dk.xam
+    artifactId: portz
     mainClass: io.quarkus.runner.GeneratedMain
     version: 25
 
@@ -23,5 +32,8 @@ release:
 distributions:
   portz:
     type: SINGLE_JAR
+    java:
+      groupId: dk.xam
+      artifactId: portz
     artifacts:
       - path: out/portz.jar
