@@ -143,6 +143,7 @@ public class Renderer {
             var display = InlineDisplay.withBackend(tableHeight, backend);
             display.render((area, buffer) -> table.render(area, buffer, new TableState()));
             display.release();
+            try { backend.close(); } catch (Exception _) {}
         } catch (Exception e) {
             // Fallback: render to buffer manually (no real terminal available)
             renderToBuffer(table, tableHeight, 120, inv);

@@ -91,6 +91,9 @@ public class DetailView {
                 cmdTable.render(areas.get(1), buffer, new TableState());
             });
             display.release();
+            // Close our backend before blocking on user input — otherwise Ctrl+C
+            // triggers SIGINT which tries to close the terminal we still hold.
+            try { backend.close(); } catch (Exception _) {}
         } catch (Exception _) {
             // Fallback
             var infoArea = Rect.of(120, infoHeight);
