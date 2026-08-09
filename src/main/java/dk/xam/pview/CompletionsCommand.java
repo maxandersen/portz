@@ -5,49 +5,61 @@ import org.aesh.command.CommandDefinition;
 import org.aesh.command.CommandResult;
 import org.aesh.command.impl.container.AeshCommandContainerBuilder;
 import org.aesh.command.invocation.CommandInvocation;
-import org.aesh.command.option.Option;
+import org.aesh.command.option.Argument;
 import org.aesh.util.completer.ShellCompletionGenerator;
 import org.aesh.util.completer.ShellCompletionGenerator.ShellType;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-
-@CommandDefinition(name = "completions", description = "Generate shell completion scripts")
+@CommandDefinition(name = "completions", description = "Generate shell completion script")
 public class CompletionsCommand implements Command<CommandInvocation> {
 
-    @Option(name = "shell", shortName = 's', description = "Target shell: BASH, ZSH, FISH, or POWERSHELL",
-            defaultValue = "BASH")
+    @Argument(description = "Target shell: bash, zsh, fish, or pwsh", defaultValue = {"bash"})
     ShellType shell;
-
-    @Option(name = "output", shortName = 'o', description = "Output directory (default: ./completions)")
-    String output;
 
     @Override
     public CommandResult execute(CommandInvocation inv) {
         try {
             var builder = new AeshCommandContainerBuilder<>();
             var container = builder.create(PortsCli.class);
-            String programName = "ports";
 
             var generator = ShellCompletionGenerator.forShell(shell);
-            String script = generator.generate(container.getParser(), programName);
+            String script = generator.generate(container.getParser(), "ports");
 
-            Path dir = Path.of(output != null ? output : "completions");
-            Files.createDirectories(dir);
-            Path file = dir.resolve(programName + shell.fileExtension());
-            Files.writeString(file, script, StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            // Print script to stdout so `ports completions zsh | source` works
+            inv.print(script);
 
-            inv.println(Ansi.markup("[green]✓[/] Completion script written to: [bold]%s[/]".formatted(file)));
-            inv.println(Ansi.markup("[dim]Install with:[/]"));
-            switch (shell) {
-                case BASH -> inv.println(Ansi.markup("  [dim]source %s[/]".formatted(file)));
-                case ZSH -> inv.println(Ansi.markup("  [dim]source %s[/]".formatted(file)));
-                case FISH -> inv.println(Ansi.markup("  [dim]cp %s ~/.config/fish/completions/[/]".formatted(file)));
-                case PWSH -> inv.println(Ansi.markup("  [dim]. %s[/]".formatted(file)));
-            }
+            // Usage hint to stderr so it doesn't pollute piped output
+            String hint = switch (shell) {
+                case BASH -> """
+                        
+                        # To use temporarily:
+                        #   source <(ports completions bash)
+                        # To install permanently:
+                        #   ports completions bash > ~/.local/share/bash-completion/completions/ports
+                        """;
+                case ZSH -> """
+                        
+                        # To use temporarily:
+                        #   source <(ports completions zsh)
+                        # To install permanently:
+                        #   ports completions zsh > ~/.zsh/completions/_ports && compinit
+                        """;
+                case FISH -> """
+                        
+                        # To use temporarily:
+                        #   ports completions fish | source
+                        # To install permanently:
+                        #   ports completions fish > ~/.config/fish/completions/ports.fish
+                        """;
+                case PWSH -> """
+                        
+                        # To use temporarily:
+                        #   ports completions pwsh | Invoke-Expression
+                        # To install permanently:
+                        #   ports completions pwsh >> $PROFILE
+                        """;
+            };
+            System.err.print(hint);
+
             return CommandResult.SUCCESS;
         } catch (Exception e) {
             inv.println(Ansi.markup("[red]Error: %s[/]".formatted(e.getMessage())));

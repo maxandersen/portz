@@ -10,4 +10,3 @@ target/
 *.jar
 *.log
 .DS_Store
-completions/
