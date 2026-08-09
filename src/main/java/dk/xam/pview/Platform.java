@@ -157,9 +157,9 @@ public class Platform {
             if (isAlive(pid)) {
                 new ProcessBuilder("kill", "-KILL", String.valueOf(pid)).start().waitFor();
             }
-            System.out.println(Ansi.markup("  [green]✓[/] PID " + pid));
+            System.out.println(Ansi.markup("  [green]✓[/] PID %d".formatted(pid)));
         } catch (Exception e) {
-            System.err.println(Ansi.markup("[red]Failed to kill PID " + pid + ": " + e.getMessage() + "[/]"));
+            System.err.println(Ansi.markup("[red]Failed to kill PID %d: %s[/]".formatted(pid, e.getMessage())));
         }
     }
 

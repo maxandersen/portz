@@ -23,15 +23,16 @@ public class CleanCommand implements Command<CommandInvocation> {
                 return CommandResult.SUCCESS;
             }
 
-            inv.println(Ansi.markup("[yellow]Found " + orphans.size() + "[/] orphaned process" +
-                    (orphans.size() == 1 ? ":" : "es:")));
+            inv.println(Ansi.markup("[yellow]Found %d[/] orphaned process%s".formatted(
+                    orphans.size(), orphans.size() == 1 ? ":" : "es:")));
             inv.println("");
 
             Renderer.renderOrphanTable(orphans, inv);
             inv.println("");
 
             for (var entry : orphans) {
-                String prompt = Ansi.markup("[yellow]Kill[/] PID [bold]" + entry.pid() + "[/] [dim]" + entry.process().name() + "[/] [y/N/a(ll)/q(uit)]: ");
+                String prompt = Ansi.markup("[yellow]Kill[/] PID [bold]%d[/] [dim]%s[/] [[y/N/a(ll)/q(uit)]]: ".formatted(
+                        entry.pid(), entry.process().name()));
                 String raw = inv.getShell().readLine(new Prompt(prompt));
                 String choice = raw != null ? raw.trim().toLowerCase() : "";
 
@@ -53,7 +54,7 @@ public class CleanCommand implements Command<CommandInvocation> {
             inv.println(Ansi.markup("\n[green]✓ Cleanup complete.[/]"));
             return CommandResult.SUCCESS;
         } catch (Exception e) {
-            inv.println(Ansi.markup("[red]Error: " + e.getMessage() + "[/]"));
+            inv.println(Ansi.markup("[red]Error: %s[/]".formatted(e.getMessage())));
             return CommandResult.FAILURE;
         }
     }

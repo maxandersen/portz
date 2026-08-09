@@ -95,8 +95,8 @@ public class Renderer {
 
         // Footer
         String filter = showAll ? "" : " · [dim]--all to show everything[/]";
-        inv.println(Ansi.markup("[cyan]" + entries.size() + "[/] "
-                + (entries.size() == 1 ? "port" : "ports") + " active" + filter));
+        inv.println(Ansi.markup("[cyan]%d[/] %s active%s".formatted(
+                entries.size(), entries.size() == 1 ? "port" : "ports", filter)));
         inv.println(Ansi.markup("Run [dim]ports <number>[/] for details"));
     }
 

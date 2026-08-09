@@ -23,7 +23,7 @@ public class PsCommand implements Command<CommandInvocation> {
             Renderer.renderPortsTable(entries, showAll, inv);
             return CommandResult.SUCCESS;
         } catch (Exception e) {
-            inv.println(Ansi.markup("[red]Error: " + e.getMessage() + "[/]"));
+            inv.println(Ansi.markup("[red]Error: %s[/]".formatted(e.getMessage())));
             return CommandResult.FAILURE;
         }
     }

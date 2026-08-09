@@ -42,14 +42,14 @@ public class WatchCommand implements Command<CommandInvocation> {
                             if (entry != null) {
                                 String fw = entry.process().framework() != null ? entry.process().framework().displayName() : "Unknown";
                                 String proj = entry.process().projectName() != null ? entry.process().projectName() : entry.process().name();
-                                inv.println(Ansi.markup("[dim]" + ts + "[/] " + entry.process().status().symbol()
-                                        + " [cyan]:" + p + "[/] started — " + entry.process().name() + " / " + fw + " / " + proj));
+                                inv.println(Ansi.markup("[dim]%s[/] %s [cyan]:%d[/] started — %s / %s / %s".formatted(
+                                        ts, entry.process().status().symbol(), p, entry.process().name(), fw, proj)));
                             }
                         }
                     }
                     for (int p : previousPorts) {
                         if (!currentPorts.contains(p)) {
-                            inv.println(Ansi.markup("[dim]" + ts + "[/] [red]✕[/] [cyan]:" + p + "[/] stopped"));
+                            inv.println(Ansi.markup("[dim]%s[/] [red]✕[/] [cyan]:%d[/] stopped".formatted(ts, p)));
                         }
                     }
                     inv.print("\033[2J\033[H");
@@ -64,7 +64,7 @@ public class WatchCommand implements Command<CommandInvocation> {
             Thread.currentThread().interrupt();
             return CommandResult.SUCCESS;
         } catch (Exception e) {
-            inv.println(Ansi.markup("[red]Error: " + e.getMessage() + "[/]"));
+            inv.println(Ansi.markup("[red]Error: %s[/]".formatted(e.getMessage())));
             return CommandResult.FAILURE;
         }
     }
