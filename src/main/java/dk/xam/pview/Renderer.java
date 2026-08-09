@@ -65,18 +65,22 @@ public class Renderer {
             }
         }
 
-        // Stretch to terminal width — give slack to the widest content column (skip first/last)
+        // Cap total table width to terminal width by truncating the widest column
         int termWidth = getTerminalWidth();
-        int tableWidth = cols + 1; // borders
-        for (int w : widths) tableWidth += w + 2; // cell padding
-        if (termWidth > tableWidth && cols > 2) {
-            int slack = termWidth - tableWidth;
-            // Find widest content column (not PORT or STATUS) to absorb slack
-            int stretchCol = 1;
-            for (int i = 1; i < cols - 1; i++) {
-                if (widths[i] > widths[stretchCol]) stretchCol = i;
+        int overhead = cols + 1; // border chars
+        for (int w : widths) overhead += 2; // cell padding (1 each side)
+        int contentWidth = 0;
+        for (int w : widths) contentWidth += w;
+        int totalWidth = overhead + contentWidth;
+        while (totalWidth > termWidth && cols > 1) {
+            // Shrink the widest column by 1
+            int widest = 0;
+            for (int i = 1; i < cols; i++) {
+                if (widths[i] > widths[widest]) widest = i;
             }
-            widths[stretchCol] += slack;
+            if (widths[widest] <= 3) break; // don't shrink below minimum
+            widths[widest]--;
+            totalWidth--;
         }
 
         System.out.println(border('╭', '┬', '╮', widths));
@@ -91,8 +95,31 @@ public class Renderer {
     private static String formatRow(String[] cells, int[] widths) {
         var sb = new StringBuilder("│");
         for (int i = 0; i < cells.length; i++) {
-            int pad = widths[i] - stripAnsi(cells[i]).length();
-            sb.append(' ').append(cells[i]).append(" ".repeat(pad + 1)).append('│');
+            String cell = cells[i];
+            int visible = stripAnsi(cell).length();
+            if (visible > widths[i]) {
+                // Truncate with ellipsis — must handle ANSI codes
+                cell = truncateAnsi(cell, widths[i]);
+                visible = stripAnsi(cell).length();
+            }
+            int pad = widths[i] - visible;
+            sb.append(' ').append(cell).append(" ".repeat(pad + 1)).append('│');
+        }
+        return sb.toString();
+    }
+
+    private static String truncateAnsi(String s, int maxVisible) {
+        if (maxVisible <= 1) return "…";
+        var sb = new StringBuilder();
+        int visible = 0;
+        boolean inEsc = false;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '\033') { inEsc = true; sb.append(c); continue; }
+            if (inEsc) { sb.append(c); if (c == 'm') inEsc = false; continue; }
+            if (visible >= maxVisible - 1) { sb.append('…').append("\033[0m"); return sb.toString(); }
+            sb.append(c);
+            visible++;
         }
         return sb.toString();
     }
