@@ -40,6 +40,8 @@ public class Collector {
                     long uptimeSeconds = Platform.parseUptime(data.etime());
                     String cmdline = Platform.getProcessCmdline(pid);
                     if (cmdline.isEmpty()) cmdline = data.name();
+                    // Derive a better display name from the full cmdline (ps comm truncates to 16 chars)
+                    String displayName = extractDisplayName(cmdline, data.name());
 
                     String cwd = cwdMap.get(pid);
                     String projectName = null;
@@ -51,7 +53,7 @@ public class Collector {
                     String gitBranch = cwd != null ? Platform.getGitBranch(cwd) : null;
 
                     enriched.put(pid, new ProcessInfo(
-                            pid, data.name(), cmdline,
+                            pid, displayName, cmdline,
                             Platform.formatUptime(uptimeSeconds), uptimeSeconds,
                             data.rss(), data.ppid(), status,
                             cwd, projectName, framework, gitBranch
@@ -82,5 +84,24 @@ public class Collector {
             entries.sort(Comparator.comparingInt(PortEntry::port));
             return entries;
         }
+    }
+
+    /** Extract a human-friendly process name from the full cmdline. */
+    private static String extractDisplayName(String cmdline, String fallback) {
+        // First token is the binary path/name
+        String bin = cmdline.split("\\s+")[0];
+        if (bin.contains("/")) {
+            // For .app bundles: /Applications/Foo.app/... -> Foo
+            int appIdx = bin.indexOf(".app/");
+            if (appIdx > 0) {
+                String appPart = bin.substring(0, appIdx);
+                int slash = appPart.lastIndexOf('/');
+                return slash >= 0 ? appPart.substring(slash + 1) : appPart;
+            }
+            // Otherwise basename
+            int slash = bin.lastIndexOf('/');
+            return slash >= 0 ? bin.substring(slash + 1) : bin;
+        }
+        return bin.isEmpty() ? fallback : bin;
     }
 }

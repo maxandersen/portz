@@ -19,7 +19,7 @@ public class Renderer {
                     : "-";
             rows.add(new String[]{
                     Ansi.cyan(":" + e.port()),
-                    e.process().name(),
+                    shortenProcessName(e.process().name()),
                     String.valueOf(e.pid()),
                     e.process().projectName() != null ? e.process().projectName() : "-",
                     fw,
@@ -65,6 +65,20 @@ public class Renderer {
             }
         }
 
+        // Stretch to terminal width — give slack to the widest content column (skip first/last)
+        int termWidth = getTerminalWidth();
+        int tableWidth = cols + 1; // borders
+        for (int w : widths) tableWidth += w + 2; // cell padding
+        if (termWidth > tableWidth && cols > 2) {
+            int slack = termWidth - tableWidth;
+            // Find widest content column (not PORT or STATUS) to absorb slack
+            int stretchCol = 1;
+            for (int i = 1; i < cols - 1; i++) {
+                if (widths[i] > widths[stretchCol]) stretchCol = i;
+            }
+            widths[stretchCol] += slack;
+        }
+
         System.out.println(border('╭', '┬', '╮', widths));
         System.out.println(formatRow(headers, widths));
         System.out.println(border('├', '┼', '┤', widths));
@@ -92,7 +106,36 @@ public class Renderer {
         return sb.toString();
     }
 
+    /** Turn /Applications/Google Chrome.app/Contents/MacOS/Google Chrome -> Google Chrome */
+    private static String shortenProcessName(String name) {
+        if (name.contains("/")) {
+            // Use filename, but for .app bundles use the app name
+            int appIdx = name.indexOf(".app/");
+            if (appIdx > 0) {
+                String appPart = name.substring(0, appIdx);
+                int slash = appPart.lastIndexOf('/');
+                return slash >= 0 ? appPart.substring(slash + 1) : appPart;
+            }
+            int slash = name.lastIndexOf('/');
+            return slash >= 0 ? name.substring(slash + 1) : name;
+        }
+        return name;
+    }
+
     private static String stripAnsi(String s) {
         return s.replaceAll("\033\\[[0-9;]*m", "");
+    }
+
+    private static int getTerminalWidth() {
+        // ponytail: stty works even when stdout is piped, tput doesn't
+        try {
+            var proc = new ProcessBuilder("stty", "size").redirectInput(new java.io.File("/dev/tty")).start();
+            String out = new String(proc.getInputStream().readAllBytes()).trim();
+            proc.waitFor();
+            // Output: "rows cols"
+            String[] parts = out.split("\\s+");
+            if (parts.length >= 2) return Integer.parseInt(parts[1]);
+        } catch (Exception ignored) {}
+        return 120;
     }
 }
