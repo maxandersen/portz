@@ -1,15 +1,31 @@
 package dk.xam.pview;
 
+import dev.tamboui.buffer.Buffer;
+import dev.tamboui.layout.Constraint;
+import dev.tamboui.layout.Rect;
+import dev.tamboui.style.Color;
+import dev.tamboui.style.Style;
+import dev.tamboui.widgets.block.Block;
+import dev.tamboui.widgets.block.BorderType;
+import dev.tamboui.widgets.table.Cell;
+import dev.tamboui.widgets.table.Row;
+import dev.tamboui.widgets.table.Table;
+import dev.tamboui.widgets.table.TableState;
 import org.aesh.command.invocation.CommandInvocation;
 import org.aesh.terminal.tty.Size;
-import org.aesh.util.table.Table;
-import org.aesh.util.table.TableStyle;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Renderer {
 
     private static final String HOME = System.getProperty("user.home");
+    private static final Style CYAN = Style.EMPTY.fg(Color.CYAN);
+    private static final Style GREEN = Style.EMPTY.fg(Color.GREEN);
+    private static final Style YELLOW = Style.EMPTY.fg(Color.YELLOW);
+    private static final Style RED = Style.EMPTY.fg(Color.RED);
+    private static final Style DIM = Style.EMPTY.dim();
+    private static final Style HEADER = Style.EMPTY.bold();
 
     public static void renderPortsTable(List<PortEntry> entries, boolean showAll, CommandInvocation inv) {
         if (entries.isEmpty()) {
@@ -19,23 +35,63 @@ public class Renderer {
 
         int width = getTerminalWidth(inv);
 
-        String output = Table.<PortEntry>builder()
-                .maxWidth(width)
-                .style(TableStyle.DUCKDB)
-                .column("PORT", e -> ":" + e.port())
-                .column("NAME", e -> shortenProcessName(e.process().name()))
-                .column("PID", e -> String.valueOf(e.pid()))
-                .column("COMMAND", e -> truncateCommand(tildeHome(e.process().command()), width))
-                .column("PROJECT", e -> e.process().projectName() != null ? e.process().projectName() : "-")
-                .column("FRAMEWORK", e -> e.process().framework() != null
-                        ? e.process().framework().emoji() + " " + e.process().framework().displayName()
-                        : "-")
-                .column("UPTIME", e -> e.process().uptime())
-                .column("STATUS", e -> e.process().status().rawSymbol())
-                .build()
-                .render(entries);
+        var header = Row.from(
+                Cell.from("PORT").style(HEADER),
+                Cell.from("NAME").style(HEADER),
+                Cell.from("PID").style(HEADER),
+                Cell.from("COMMAND").style(HEADER),
+                Cell.from("PROJECT").style(HEADER),
+                Cell.from("FRAMEWORK").style(HEADER),
+                Cell.from("UPTIME").style(HEADER),
+                Cell.from("STATUS").style(HEADER)
+        );
 
-        inv.print(output);
+        var rows = new ArrayList<Row>();
+        for (var e : entries) {
+            String fw = e.process().framework() != null
+                    ? e.process().framework().emoji() + " " + e.process().framework().displayName()
+                    : "-";
+            ProcessStatus st = e.process().status();
+            Style statusStyle = switch (st) {
+                case HEALTHY -> GREEN;
+                case ORPHANED -> YELLOW;
+                case ZOMBIE -> RED;
+            };
+
+            rows.add(Row.from(
+                    Cell.from(":" + e.port()).style(CYAN),
+                    Cell.from(shortenProcessName(e.process().name())),
+                    Cell.from(String.valueOf(e.pid())),
+                    Cell.from(tildeHome(e.process().command())).style(DIM),
+                    Cell.from(e.process().projectName() != null ? e.process().projectName() : "-"),
+                    Cell.from(fw),
+                    Cell.from(e.process().uptime()),
+                    Cell.from(st.rawSymbol()).style(statusStyle)
+            ));
+        }
+
+        var table = Table.builder()
+                .header(header)
+                .rows(rows)
+                .widths(
+                        Constraint.length(7),    // PORT
+                        Constraint.length(10),   // NAME
+                        Constraint.length(6),    // PID
+                        Constraint.fill(1),      // COMMAND - takes remaining space
+                        Constraint.length(18),   // PROJECT
+                        Constraint.length(14),   // FRAMEWORK
+                        Constraint.length(8),    // UPTIME
+                        Constraint.length(6)     // STATUS
+                )
+                .columnSpacing(1)
+                .block(Block.builder().borders(dev.tamboui.widgets.block.Borders.ALL).borderType(BorderType.ROUNDED).build())
+                .build();
+
+        int tableHeight = rows.size() + 3; // rows + header + top/bottom borders
+        var area = Rect.of(width, tableHeight);
+        var buffer = Buffer.empty(area);
+        table.render(area, buffer, new TableState());
+        inv.println(buffer.toAnsiString());
 
         // Footer
         String filter = showAll ? "" : " · " + Ansi.dim("--all to show everything");
@@ -49,46 +105,43 @@ public class Renderer {
     public static void renderOrphanTable(List<PortEntry> orphans, CommandInvocation inv) {
         int width = getTerminalWidth(inv);
 
-        String output = Table.<PortEntry>builder()
-                .maxWidth(width)
-                .style(TableStyle.DUCKDB)
-                .column("PID", e -> String.valueOf(e.pid()))
-                .column("PROCESS", e -> e.process().name())
-                .column("PROJECT", e -> e.process().projectName() != null ? e.process().projectName() : "-")
-                .column("UPTIME", e -> e.process().uptime())
-                .column("STATUS", e -> e.process().status().rawSymbol())
-                .build()
-                .render(orphans);
+        var header = Row.from(
+                Cell.from("PID").style(HEADER),
+                Cell.from("PROCESS").style(HEADER),
+                Cell.from("PROJECT").style(HEADER),
+                Cell.from("UPTIME").style(HEADER),
+                Cell.from("STATUS").style(HEADER)
+        );
 
-        inv.print(output);
-    }
-
-    /**
-     * Truncate command to fit. Reserves ~40% of terminal width for COMMAND,
-     * collapses path segments from left before hard-truncating.
-     */
-    private static String truncateCommand(String cmd, int termWidth) {
-        int maxLen = termWidth > 0 ? Math.max(30, (termWidth * 40) / 100) : 60;
-        if (cmd.length() <= maxLen) return cmd;
-
-        // Split into binary path (first token) and args
-        int space = cmd.indexOf(' ');
-        String path = space > 0 ? cmd.substring(0, space) : cmd;
-        String args = space > 0 ? cmd.substring(space) : "";
-
-        // Collapse path segments from left: /Users/max/.sdkman/candidates -> /U/m/.s/c
-        if (path.contains("/")) {
-            String[] segs = path.split("/");
-            for (int i = 1; i < segs.length - 1; i++) {
-                if (segs[i].length() > 1) segs[i] = segs[i].substring(0, 1);
-                String collapsed = String.join("/", segs) + args;
-                if (collapsed.length() <= maxLen) return collapsed;
-            }
-            path = String.join("/", segs);
+        var rows = new ArrayList<Row>();
+        for (var e : orphans) {
+            ProcessStatus st = e.process().status();
+            Style statusStyle = switch (st) {
+                case HEALTHY -> GREEN;
+                case ORPHANED -> YELLOW;
+                case ZOMBIE -> RED;
+            };
+            rows.add(Row.from(
+                    Cell.from(String.valueOf(e.pid())),
+                    Cell.from(e.process().name()),
+                    Cell.from(e.process().projectName() != null ? e.process().projectName() : "-"),
+                    Cell.from(e.process().uptime()),
+                    Cell.from(st.rawSymbol()).style(statusStyle)
+            ));
         }
 
-        String result = path + args;
-        return result.length() <= maxLen ? result : result.substring(0, maxLen - 1) + "…";
+        var table = Table.builder()
+                .header(header)
+                .rows(rows)
+                .columnSpacing(1)
+                .block(Block.builder().borders(dev.tamboui.widgets.block.Borders.ALL).borderType(BorderType.ROUNDED).build())
+                .build();
+
+        int tableHeight = rows.size() + 4;
+        var area = Rect.of(width, tableHeight);
+        var buffer = Buffer.empty(area);
+        table.render(area, buffer, new TableState());
+        inv.println(buffer.toAnsiString());
     }
 
     private static String tildeHome(String s) {
@@ -135,9 +188,9 @@ public class Renderer {
                 if (cols != null) detected = Integer.parseInt(cols);
             } catch (Exception ignored) {}
         }
-        // ponytail: 80 is the universal "I don't actually know" default from tput/stty.
-        // A real wide terminal reports its actual width. Treat <=80 as unknown
-        // and return 0 (unlimited) so aesh Table sizes to content.
-        return detected > 80 ? detected : 0;
+        // ponytail: 80 is the universal "I don't know" default.
+        // Real wide terminals report actual width. Treat <=80 as unknown
+        // and use a generous default so the table isn't squished.
+        return detected > 80 ? detected : 140;
     }
 }
