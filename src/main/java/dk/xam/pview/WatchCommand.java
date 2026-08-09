@@ -13,8 +13,7 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
-import org.aesh.terminal.Key;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @CommandDefinition(name = "watch", description = "Real-time monitoring (poll every 1s)")
 public class WatchCommand implements Command<CommandInvocation> {
@@ -32,12 +31,26 @@ public class WatchCommand implements Command<CommandInvocation> {
         inv.println(Ansi.markup("[cyan]Starting port monitor (q or Ctrl+C to exit)...[/]"));
 
         var previousByPid = new HashMap<Long, PortEntry>();
-        var ghosts = new LinkedHashMap<Long, Ghost>(); // pid -> ghost
+        var ghosts = new LinkedHashMap<Long, Ghost>();
+        var quit = new AtomicBoolean(false);
+
+        // Background thread to watch for 'q' keypress on stdin
+        var keyThread = Thread.ofVirtual().start(() -> {
+            try {
+                while (!quit.get()) {
+                    if (System.in.available() > 0) {
+                        int ch = System.in.read();
+                        if (ch == 'q' || ch == 'Q') { quit.set(true); return; }
+                    }
+                    Thread.sleep(100);
+                }
+            } catch (Exception _) {}
+        });
 
         try {
             var backend = Renderer.createBackend();
             try (var display = InlineDisplay.withBackend(2, backend)) {
-                while (true) {
+                while (!quit.get()) {
                     var entries = Collector.collectAll(showAll);
                     var currentByPid = new HashMap<Long, PortEntry>();
                     entries.forEach(e -> currentByPid.putIfAbsent(e.pid(), e));
@@ -86,19 +99,17 @@ public class WatchCommand implements Command<CommandInvocation> {
 
                     previousByPid = currentByPid;
 
-                    // Wait ~1s, but poll for 'q' keypress to quit
-                    var key = inv.getShell().read(1, TimeUnit.SECONDS);
-                    if (key == Key.q || key == Key.Q) {
-                        return CommandResult.SUCCESS;
-                    }
+                    Thread.sleep(1000);
                 }
             }
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
-            return CommandResult.SUCCESS;
         } catch (Exception e) {
             inv.println(Ansi.markup("[red]Error: %s[/]".formatted(e.getMessage())));
             return CommandResult.FAILURE;
+        } finally {
+            quit.set(true);
         }
+        return CommandResult.SUCCESS;
     }
 }
