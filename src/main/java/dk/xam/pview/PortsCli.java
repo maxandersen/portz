@@ -8,7 +8,7 @@ import org.aesh.command.option.Option;
 
 @CommandDefinition(name = "ports",
         description = "A beautiful CLI tool to inspect and manage processes listening on your machine's ports",
-        groupCommands = { PsCommand.class, WatchCommand.class, CleanCommand.class })
+        groupCommands = { PsCommand.class, WatchCommand.class, CleanCommand.class, CompletionsCommand.class })
 public class PortsCli implements Command<CommandInvocation> {
 
     @Option(name = "all", hasValue = false, description = "Show all ports including system services")
