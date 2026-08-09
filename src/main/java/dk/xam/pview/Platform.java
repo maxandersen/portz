@@ -134,7 +134,7 @@ public class Platform {
     // === CWDs ===
 
     static Map<Long, String> collectProcessCwds(Set<Long> pids) throws Exception {
-        if (IS_WINDOWS) return Map.of(); // ponytail: ProcessHandle doesn't expose CWD on Windows
+        if (IS_WINDOWS) return collectCwdsWindows(pids);
         if (pids.isEmpty()) return Map.of();
 
         String stdout = exec("lsof", "-d", "cwd", "-a", "-p",
@@ -149,6 +149,28 @@ public class Platform {
                 map.put(currentPid, line.substring(1));
             }
         }
+        return map;
+    }
+
+    private static Map<Long, String> collectCwdsWindows(Set<Long> pids) {
+        if (pids.isEmpty()) return Map.of();
+        var map = new HashMap<Long, String>();
+        // ponytail: ProcessHandle doesn't expose CWD on Windows.
+        // Use PowerShell to read it via .NET Process class. WorkingDirectory is
+        // usually empty, so fall back to the exe's directory.
+        try {
+            String pidFilter = String.join(",", pids.stream().map(String::valueOf).toList());
+            String script = "$pids = @(%s); foreach ($id in $pids) { try { $p = [System.Diagnostics.Process]::GetProcessById($id); $cwd = $p.StartInfo.WorkingDirectory; if (-not $cwd) { $cwd = [IO.Path]::GetDirectoryName($p.MainModule.FileName) }; Write-Output \"$id|$cwd\" } catch {} }"
+                    .formatted(pidFilter);
+            String stdout = exec("powershell", "-NoProfile", "-Command", script);
+            for (String line : stdout.lines().toList()) {
+                String[] parts = line.split("\\|", 2);
+                if (parts.length == 2 && !parts[1].isBlank()) {
+                    try { map.put(Long.parseLong(parts[0].trim()), parts[1].trim()); }
+                    catch (NumberFormatException _) {}
+                }
+            }
+        } catch (Exception _) {}
         return map;
     }
 
@@ -283,7 +305,7 @@ public class Platform {
     // === Helpers ===
 
     /** Run a command and return stdout. */
-    private static String exec(String... cmd) throws Exception {
+    static String exec(String... cmd) throws Exception {
         var proc = new ProcessBuilder(cmd).redirectErrorStream(false).start();
         String stdout = new String(proc.getInputStream().readAllBytes());
         proc.waitFor();
