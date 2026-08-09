@@ -1,0 +1,27 @@
+project:
+  name: pview
+  description: A beautiful CLI tool to inspect and manage processes listening on your machine's ports
+  license: MIT
+  java:
+    mainClass: io.quarkus.runner.GeneratedMain
+    version: 25
+
+release:
+  github:
+    overwrite: true
+    tagName: earlyaccess
+    releaseName: Early Access
+    prerelease:
+      enabled: true
+    changelog:
+      enabled: false
+    update:
+      enabled: true
+      sections:
+        - ASSETS
+
+distributions:
+  pview:
+    type: SINGLE_JAR
+    artifacts:
+      - path: out/pview.jar
