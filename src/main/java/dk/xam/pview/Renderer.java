@@ -3,9 +3,9 @@ package dk.xam.pview;
 import dev.tamboui.backend.aesh.AeshBackend;
 import dev.tamboui.inline.InlineDisplay;
 import dev.tamboui.layout.Constraint;
-import dev.tamboui.text.Text;
 import dev.tamboui.style.Color;
 import dev.tamboui.style.Style;
+import dev.tamboui.text.Text;
 import dev.tamboui.widgets.block.Block;
 import dev.tamboui.widgets.block.BorderType;
 import dev.tamboui.widgets.block.Borders;
@@ -14,7 +14,6 @@ import dev.tamboui.widgets.table.Row;
 import dev.tamboui.widgets.table.Table;
 import dev.tamboui.widgets.table.TableState;
 import org.aesh.command.invocation.CommandInvocation;
-import org.aesh.terminal.Connection;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,95 +28,77 @@ public class Renderer {
     private static final Style DIM = color(Style.EMPTY.dim());
     private static final Style HEADER = color(Style.EMPTY.bold());
 
-    /** Returns Style.EMPTY when NO_COLOR is set, otherwise the given style. */
-    private static Style color(Style s) {
-        return Ansi.NO_COLOR ? Style.EMPTY : s;
-    }
+    private static Style color(Style s) { return Ansi.NO_COLOR ? Style.EMPTY : s; }
 
-    public static void renderPortsTable(List<PortEntry> entries, boolean showAll, boolean group, CommandInvocation inv) {
-        if (entries.isEmpty()) {
-            if (showAll) {
-                inv.println(Ansi.markup("[yellow]No listening ports found.[/]"));
-            } else {
-                inv.println(Ansi.markup("[yellow]No dev ports found.[/] Try [dim]--all[/] to include system services."));
-            }
-            return;
-        }
+    record BuiltTable(Table table, int height) {}
 
+    /** Build a ports table without rendering. Used by watch mode and renderPortsTable. */
+    static BuiltTable buildPortsTable(List<PortEntry> entries, boolean showAll, boolean group) {
         var header = Row.from(
-                Cell.from("PORT").style(HEADER),
-                Cell.from("NAME").style(HEADER),
-                Cell.from("PID").style(HEADER),
-                Cell.from("COMMAND").style(HEADER),
-                Cell.from("PROJECT").style(HEADER),
-                Cell.from("FRAMEWORK").style(HEADER),
-                Cell.from("UPTIME").style(HEADER),
-                Cell.from("STATUS").style(HEADER)
-        );
+                Cell.from("PORT").style(HEADER), Cell.from("NAME").style(HEADER),
+                Cell.from("PID").style(HEADER), Cell.from("COMMAND").style(HEADER),
+                Cell.from("PROJECT").style(HEADER), Cell.from("FRAMEWORK").style(HEADER),
+                Cell.from("UPTIME").style(HEADER), Cell.from("STATUS").style(HEADER));
 
         var rows = new ArrayList<Row>();
         int totalLines = 0;
 
         if (group) {
-            // Group by PID, preserving order of first (lowest) port
             var grouped = new java.util.LinkedHashMap<Long, List<PortEntry>>();
-            for (var e : entries) {
-                grouped.computeIfAbsent(e.pid(), _ -> new ArrayList<>()).add(e);
-            }
+            for (var e : entries) grouped.computeIfAbsent(e.pid(), _ -> new ArrayList<>()).add(e);
             for (var g : grouped.values()) {
                 var first = g.getFirst();
                 String ports = g.stream().map(e -> ":" + e.port()).collect(java.util.stream.Collectors.joining("\n"));
                 rows.add(Row.from(
-                        Cell.from(Text.from(ports)).style(CYAN),
-                        Cell.from(nameOf(first.process())),
-                        Cell.from(String.valueOf(first.pid())),
-                        Cell.from(tildeHome(first.process().command())).style(DIM),
-                        Cell.from(projectOf(first.process())),
-                        Cell.from(frameworkOf(first.process())),
-                        Cell.from(first.process().uptime()),
-                        statusCell(first.process().status())
-                ));
+                        Cell.from(Text.from(ports)).style(CYAN), Cell.from(nameOf(first.process())),
+                        Cell.from(String.valueOf(first.pid())), Cell.from(tildeHome(first.process().command())).style(DIM),
+                        Cell.from(projectOf(first.process())), Cell.from(frameworkOf(first.process())),
+                        Cell.from(first.process().uptime()), statusCell(first.process().status())));
                 totalLines += g.size();
             }
         } else {
             for (var e : entries) {
                 rows.add(Row.from(
-                        Cell.from(":" + e.port()).style(CYAN),
-                        Cell.from(nameOf(e.process())),
-                        Cell.from(String.valueOf(e.pid())),
-                        Cell.from(tildeHome(e.process().command())).style(DIM),
-                        Cell.from(projectOf(e.process())),
-                        Cell.from(frameworkOf(e.process())),
-                        Cell.from(e.process().uptime()),
-                        statusCell(e.process().status())
-                ));
+                        Cell.from(":" + e.port()).style(CYAN), Cell.from(nameOf(e.process())),
+                        Cell.from(String.valueOf(e.pid())), Cell.from(tildeHome(e.process().command())).style(DIM),
+                        Cell.from(projectOf(e.process())), Cell.from(frameworkOf(e.process())),
+                        Cell.from(e.process().uptime()), statusCell(e.process().status())));
                 totalLines++;
             }
         }
 
         var table = Table.builder()
-                .header(header)
-                .rows(rows)
-                .widths(
-                        Constraint.max(maxCol(entries, e -> ":" + e.port(), 4)),
+                .header(header).rows(rows)
+                .widths(Constraint.max(maxCol(entries, e -> ":" + e.port(), 4)),
                         Constraint.max(maxCol(entries, e -> nameOf(e.process()), 4)),
                         Constraint.max(maxCol(entries, e -> String.valueOf(e.pid()), 3)),
-                        Constraint.fill(1),      // COMMAND — takes remaining space
+                        Constraint.fill(1),
                         Constraint.max(maxCol(entries, e -> projectOf(e.process()), 7)),
                         Constraint.max(maxCol(entries, e -> frameworkOf(e.process()), 9)),
                         Constraint.max(maxCol(entries, e -> e.process().uptime(), 6)),
-                        Constraint.max(6)        // STATUS
-                )
+                        Constraint.max(6))
                 .columnSpacing(1)
                 .block(Block.builder().borders(Borders.ALL).borderType(BorderType.ROUNDED).build())
                 .build();
 
-        renderInline(table, totalLines, inv);
+        return new BuiltTable(table, totalLines + 3);
+    }
+
+    public static void renderPortsTable(List<PortEntry> entries, boolean showAll, boolean group, CommandInvocation inv) {
+        if (entries.isEmpty()) {
+            inv.println(Ansi.markup(showAll
+                    ? "[yellow]No listening ports found.[/]"
+                    : "[yellow]No dev ports found.[/] Try [dim]--all[/] to include system services."));
+            return;
+        }
+
+        var built = buildPortsTable(entries, showAll, group);
+        renderInline(built.table(), built.height(), inv);
 
         // Footer
         String filter = showAll ? "" : " · [dim]--all to show everything[/]";
         int portCount = entries.size();
-        int processCount = rows.size();
+        int processCount = (int) entries.stream().map(PortEntry::pid).distinct().count();
         String summary = portCount == processCount
                 ? "[cyan]%d[/] %s".formatted(portCount, portCount == 1 ? "port" : "ports")
                 : "[cyan]%d[/] ports across [cyan]%d[/] processes".formatted(portCount, processCount);
@@ -127,59 +108,44 @@ public class Renderer {
 
     public static void renderOrphanTable(List<PortEntry> orphans, CommandInvocation inv) {
         var header = Row.from(
-                Cell.from("PID").style(HEADER),
-                Cell.from("NAME").style(HEADER),
-                Cell.from("PROJECT").style(HEADER),
-                Cell.from("UPTIME").style(HEADER),
-                Cell.from("STATUS").style(HEADER)
-        );
+                Cell.from("PID").style(HEADER), Cell.from("NAME").style(HEADER),
+                Cell.from("PROJECT").style(HEADER), Cell.from("UPTIME").style(HEADER),
+                Cell.from("STATUS").style(HEADER));
 
         var rows = new ArrayList<Row>();
         for (var e : orphans) {
             rows.add(Row.from(
-                    Cell.from(String.valueOf(e.pid())),
-                    Cell.from(nameOf(e.process())),
-                    Cell.from(projectOf(e.process())),
-                    Cell.from(e.process().uptime()),
-                    statusCell(e.process().status())
-            ));
+                    Cell.from(String.valueOf(e.pid())), Cell.from(nameOf(e.process())),
+                    Cell.from(projectOf(e.process())), Cell.from(e.process().uptime()),
+                    statusCell(e.process().status())));
         }
 
-        var table = Table.builder()
-                .header(header)
-                .rows(rows)
-                .widths(
-                        Constraint.max(maxCol(orphans, e -> String.valueOf(e.pid()), 3)),
+        var table = Table.builder().header(header).rows(rows)
+                .widths(Constraint.max(maxCol(orphans, e -> String.valueOf(e.pid()), 3)),
                         Constraint.max(maxCol(orphans, e -> nameOf(e.process()), 4)),
-                        Constraint.fill(1),      // PROJECT — flex column
+                        Constraint.fill(1),
                         Constraint.max(maxCol(orphans, e -> e.process().uptime(), 6)),
-                        Constraint.max(6)        // STATUS
-                )
+                        Constraint.max(6))
                 .columnSpacing(1)
                 .block(Block.builder().borders(Borders.ALL).borderType(BorderType.ROUNDED).build())
                 .build();
 
-        renderInline(table, rows.size(), inv);
+        renderInline(table, rows.size() + 3, inv);
     }
 
-    /**
-     * Render a Table widget via tamboui InlineDisplay.
-     * InlineDisplay gets terminal width from the aesh backend automatically —
-     * no manual width detection needed.
-     */
-    static void renderInline(Table table, int rowCount, CommandInvocation inv) {
-        int tableHeight = rowCount + 3; // top border + header + rows + bottom border
+    // === Rendering ===
+
+    static void renderInline(Table table, int height, CommandInvocation inv) {
         try {
             var backend = createBackend();
-            try (var display = InlineDisplay.withBackend(tableHeight, backend)) {
+            try (var display = InlineDisplay.withBackend(height, backend)) {
                 display.render((area, buffer) -> table.render(area, buffer, new TableState()));
             }
         } catch (Exception _) {
-            renderToBuffer(table, tableHeight, detectTerminalWidth(), inv);
+            renderToBuffer(table, height, 120, inv);
         }
     }
 
-    /** Fallback when no aesh Connection is available (e.g. tests). */
     private static void renderToBuffer(Table table, int height, int width, CommandInvocation inv) {
         var area = dev.tamboui.layout.Rect.of(width, height);
         var buffer = dev.tamboui.buffer.Buffer.empty(area);
@@ -187,63 +153,12 @@ public class Renderer {
         inv.println(buffer.toAnsiString());
     }
 
-    /**
-     * Compute column width from data content.
-     * WORKAROUND: tamboui/tamboui#413
-     * Constraint.fit() only works in Toolkit DSL (LayoutSolver has no handler
-     * for Fit at the raw widget level). We compute widths from cell values
-     * and use Constraint.max() so columns can shrink on narrow terminals.
-     */
-    static int maxCol(List<PortEntry> entries, java.util.function.Function<PortEntry, String> fn, int headerLen) {
-        int max = headerLen;
-        for (var e : entries) max = Math.max(max, fn.apply(e).length());
-        return max;
-    }
-
-    // === Shared cell helpers for consistent formatting across tables ===
-
-    static String nameOf(ProcessInfo p) {
-        return shortenProcessName(p.name());
-    }
-
-    static String projectOf(ProcessInfo p) {
-        return p.projectName() != null ? p.projectName() : "-";
-    }
-
-    static String frameworkOf(ProcessInfo p) {
-        return p.framework() != null
-                ? p.framework().emoji() + " " + p.framework().displayName()
-                : "-";
-    }
-
-    static Cell statusCell(ProcessStatus st) {
-        Style style = switch (st) {
-            case HEALTHY -> GREEN;
-            case ORPHANED -> YELLOW;
-            case ZOMBIE -> RED;
-        };
-        return Cell.from(st.rawSymbol()).style(style);
-    }
-
-    private static String tildeHome(String s) {
-        return HOME != null && s.startsWith(HOME) ? "~" + s.substring(HOME.length()) : s;
-    }
-
-    /**
-     * Detect real terminal width.
-     * WORKAROUND: quarkusio/quarkus#55935 — Shell.connection() returns null
-     * and terminal size is hardcoded to 120x40. Create a temporary AeshBackend
-     * to read the real size. The close() logs a warning about session conflicts
-     * with quarkus-aesh's terminal — suppressed via log level.
-     */
     private static final java.util.logging.Logger AESH_LOGGER =
             java.util.logging.Logger.getLogger("org.aesh.terminal.tty.TerminalConnection");
 
     /**
      * Create an AeshBackend for terminal rendering.
      * WORKAROUND: quarkusio/quarkus#55935 — Shell.connection() returns null.
-     * We create our own backend; suppress close warnings since quarkus-aesh
-     * also holds the terminal.
      */
     static AeshBackend createBackend() throws Exception {
         AESH_LOGGER.setLevel(java.util.logging.Level.SEVERE);
@@ -259,6 +174,35 @@ public class Renderer {
         } catch (Exception _) {
             return 120;
         }
+    }
+
+    // === Column width ===
+
+    /**
+     * WORKAROUND: tamboui/tamboui#413
+     * Constraint.fit() doesn't work with raw Table widget.
+     */
+    static int maxCol(List<PortEntry> entries, java.util.function.Function<PortEntry, String> fn, int headerLen) {
+        int max = headerLen;
+        for (var e : entries) max = Math.max(max, fn.apply(e).length());
+        return max;
+    }
+
+    // === Shared cell helpers ===
+
+    static String nameOf(ProcessInfo p) { return shortenProcessName(p.name()); }
+    static String projectOf(ProcessInfo p) { return p.projectName() != null ? p.projectName() : "-"; }
+    static String frameworkOf(ProcessInfo p) {
+        return p.framework() != null ? p.framework().emoji() + " " + p.framework().displayName() : "-";
+    }
+
+    static Cell statusCell(ProcessStatus st) {
+        Style style = switch (st) { case HEALTHY -> GREEN; case ORPHANED -> YELLOW; case ZOMBIE -> RED; };
+        return Cell.from(st.rawSymbol()).style(style);
+    }
+
+    static String tildeHome(String s) {
+        return HOME != null && s.startsWith(HOME) ? "~" + s.substring(HOME.length()) : s;
     }
 
     private static String shortenProcessName(String name) {

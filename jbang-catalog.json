@@ -3,6 +3,10 @@
     "pview": {
       "script-ref": "target/quarkus-app/quarkus-run.jar",
       "enable-preview": false
+    },
+    "ports": {
+      "script-ref": "target/quarkus-app/quarkus-run.jar",
+      "enable-preview": false
     }
   }
 }
