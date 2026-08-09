@@ -13,6 +13,8 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import org.aesh.terminal.Key;
 
 @CommandDefinition(name = "watch", description = "Real-time monitoring (poll every 1s)")
 public class WatchCommand implements Command<CommandInvocation> {
@@ -85,8 +87,10 @@ public class WatchCommand implements Command<CommandInvocation> {
                     previousByPid = currentByPid;
 
                     // Wait ~1s, but poll for 'q' keypress to quit
-                    int ch = backend.read(1000);
-                    if (ch == 'q' || ch == 'Q') return CommandResult.SUCCESS;
+                    var key = inv.getShell().read(1, TimeUnit.SECONDS);
+                    if (key == Key.q || key == Key.Q) {
+                        return CommandResult.SUCCESS;
+                    }
                 }
             }
         } catch (InterruptedException _) {
