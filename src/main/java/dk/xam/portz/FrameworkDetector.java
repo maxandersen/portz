@@ -68,7 +68,7 @@ public class FrameworkDetector {
         };
     }
 
-    private static Framework detectFromPackageJson(Path dir) {
+    static Framework detectFromPackageJson(Path dir) {
         Path packageJson = dir.resolve("package.json");
         if (!Files.exists(packageJson)) return null;
         try {
@@ -85,7 +85,7 @@ public class FrameworkDetector {
         return null;
     }
 
-    private static Framework detectFromJavaProject(Path dir) {
+    static Framework detectFromJavaProject(Path dir) {
         Path pom = dir.resolve("pom.xml");
         if (Files.exists(pom)) {
             try {
@@ -108,7 +108,7 @@ public class FrameworkDetector {
         return null;
     }
 
-    private static Framework detectFromCmdline(String cmdline) {
+    static Framework detectFromCmdline(String cmdline) {
         if (cmdline == null) return null;
         String lower = cmdline.toLowerCase();
         if (lower.contains("django")) return Framework.DJANGO;

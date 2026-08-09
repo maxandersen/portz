@@ -87,7 +87,7 @@ public class Collector {
     }
 
     /** Extract a human-friendly process name from the full cmdline. */
-    private static String extractDisplayName(String cmdline, String fallback) {
+    static String extractDisplayName(String cmdline, String fallback) {
         // For .app bundles, detect before splitting — binary path may contain spaces
         // e.g. /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --flag
         int appIdx = cmdline.indexOf(".app/");
