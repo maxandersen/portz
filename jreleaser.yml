@@ -21,7 +21,7 @@ release:
         - ASSETS
 
 distributions:
-  pview:
+  portz:
     type: SINGLE_JAR
     artifacts:
       - path: out/portz.jar

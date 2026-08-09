@@ -1,4 +1,4 @@
-package dk.xam.pview;
+package dk.xam.portz;
 
 public record Framework(String displayName, String emoji) {
 

@@ -1,4 +1,4 @@
-package dk.xam.pview;
+package dk.xam.portz;
 
 public enum ProcessStatus {
     HEALTHY("●", "\033[32m"),

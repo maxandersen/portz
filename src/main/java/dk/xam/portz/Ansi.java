@@ -1,4 +1,4 @@
-package dk.xam.pview;
+package dk.xam.portz;
 
 import dev.tamboui.text.Line;
 import dev.tamboui.text.MarkupParser;

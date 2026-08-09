@@ -1,4 +1,4 @@
-package dk.xam.pview;
+package dk.xam.portz;
 
 import org.aesh.command.Command;
 import org.aesh.command.CommandDefinition;

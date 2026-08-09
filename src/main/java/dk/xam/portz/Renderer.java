@@ -1,4 +1,4 @@
-package dk.xam.pview;
+package dk.xam.portz;
 
 import dev.tamboui.backend.aesh.AeshBackend;
 import dev.tamboui.inline.InlineDisplay;

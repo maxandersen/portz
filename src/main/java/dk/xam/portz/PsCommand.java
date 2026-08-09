@@ -1,4 +1,4 @@
-package dk.xam.pview;
+package dk.xam.portz;
 
 import dev.tamboui.buffer.Buffer;
 import dev.tamboui.layout.Constraint;
