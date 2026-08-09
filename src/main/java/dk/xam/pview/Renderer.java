@@ -133,9 +133,13 @@ public class Renderer {
         inv.println(buffer.toAnsiString());
     }
 
-    /** Compute column width: max of header label and cell content, with a floor. */
-    static int maxCol(List<PortEntry> entries, java.util.function.Function<PortEntry, String> fn, int floor) {
-        int max = floor;
+    /**
+     * Compute column width from data content.
+     * ponytail: Constraint.fit() only works in Toolkit DSL (needs preferredWidth()),
+     * not with raw Table widget. So we compute widths from actual cell values.
+     */
+    static int maxCol(List<PortEntry> entries, java.util.function.Function<PortEntry, String> fn, int headerLen) {
+        int max = headerLen;
         for (var e : entries) max = Math.max(max, fn.apply(e).length());
         return max;
     }
