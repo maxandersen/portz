@@ -21,6 +21,7 @@ import java.util.List;
 public class Renderer {
 
     private static final String HOME = System.getProperty("user.home");
+    private static final Style NEW_ROW = color(Style.EMPTY.fg(Color.LIGHT_GREEN));
     private static final Style CYAN = color(Style.EMPTY.fg(Color.CYAN));
     private static final Style GREEN = color(Style.EMPTY.fg(Color.GREEN));
     private static final Style YELLOW = color(Style.EMPTY.fg(Color.YELLOW));
@@ -48,21 +49,25 @@ public class Renderer {
             for (var e : entries) grouped.computeIfAbsent(e.pid(), _ -> new ArrayList<>()).add(e);
             for (var g : grouped.values()) {
                 var first = g.getFirst();
+                boolean recent = first.process().uptimeSeconds() < 60;
                 String ports = g.stream().map(e -> ":" + e.port()).collect(java.util.stream.Collectors.joining("\n"));
-                rows.add(Row.from(
+                var row = Row.from(
                         Cell.from(Text.from(ports)).style(CYAN), Cell.from(nameOf(first.process())),
                         Cell.from(String.valueOf(first.pid())), Cell.from(tildeHome(first.process().command())).style(DIM),
                         Cell.from(projectOf(first.process())), Cell.from(frameworkOf(first.process())),
-                        Cell.from(first.process().uptime()), statusCell(first.process().status())));
+                        Cell.from(first.process().uptime()), statusCell(first.process().status()));
+                rows.add(recent ? row.style(NEW_ROW) : row);
                 totalLines += g.size();
             }
         } else {
             for (var e : entries) {
-                rows.add(Row.from(
+                boolean recent = e.process().uptimeSeconds() < 60;
+                var row = Row.from(
                         Cell.from(":" + e.port()).style(CYAN), Cell.from(nameOf(e.process())),
                         Cell.from(String.valueOf(e.pid())), Cell.from(tildeHome(e.process().command())).style(DIM),
                         Cell.from(projectOf(e.process())), Cell.from(frameworkOf(e.process())),
-                        Cell.from(e.process().uptime()), statusCell(e.process().status())));
+                        Cell.from(e.process().uptime()), statusCell(e.process().status()));
+                rows.add(recent ? row.style(NEW_ROW) : row);
                 totalLines++;
             }
         }
