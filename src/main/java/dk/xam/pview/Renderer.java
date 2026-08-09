@@ -129,18 +129,16 @@ public class Renderer {
      */
     static void renderInline(Table table, int rowCount, CommandInvocation inv) {
         int tableHeight = rowCount + 3; // top border + header + rows + bottom border
-        Connection conn = inv.getShell().connection();
-        if (conn != null) {
-            try {
-                var backend = new AeshBackend(conn);
-                try (var display = InlineDisplay.withBackend(tableHeight, backend)) {
-                    display.render((area, buffer) -> table.render(area, buffer, new TableState()));
-                }
-            } catch (Exception e) {
-                // Fallback: render to buffer manually
-                renderToBuffer(table, tableHeight, 120, inv);
+        try {
+            // Create our own AeshBackend — it reads terminal size directly.
+            // Using the Connection from CommandInvocation can report wrong size
+            // because quarkus-aesh may have already altered the terminal state.
+            var backend = new AeshBackend();
+            try (var display = InlineDisplay.withBackend(tableHeight, backend)) {
+                display.render((area, buffer) -> table.render(area, buffer, new TableState()));
             }
-        } else {
+        } catch (Exception e) {
+            // Fallback: render to buffer manually
             renderToBuffer(table, tableHeight, 120, inv);
         }
     }
