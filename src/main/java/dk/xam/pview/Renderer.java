@@ -29,7 +29,7 @@ public class Renderer {
 
     public static void renderPortsTable(List<PortEntry> entries, boolean showAll, CommandInvocation inv) {
         if (entries.isEmpty()) {
-            Ansi.println(inv, Ansi.yellow("No listening ports found."));
+            inv.println(Ansi.markup("[yellow]No listening ports found.[/]"));
             return;
         }
 
@@ -94,12 +94,10 @@ public class Renderer {
         inv.println(buffer.toAnsiString());
 
         // Footer
-        String filter = showAll ? "" : " · " + Ansi.dim("--all to show everything");
-        inv.println(String.format("%s %s active%s",
-                Ansi.cyan(String.valueOf(entries.size())),
-                entries.size() == 1 ? "port" : "ports",
-                filter));
-        inv.println("Run " + Ansi.dim("ports <number>") + " for details");
+        String filter = showAll ? "" : " · [dim]--all to show everything[/]";
+        inv.println(Ansi.markup("[cyan]" + entries.size() + "[/] "
+                + (entries.size() == 1 ? "port" : "ports") + " active" + filter));
+        inv.println(Ansi.markup("Run [dim]ports <number>[/] for details"));
     }
 
     public static void renderOrphanTable(List<PortEntry> orphans, CommandInvocation inv) {

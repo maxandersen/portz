@@ -18,18 +18,6 @@ public class Ansi {
         return textToAnsi(MarkupParser.parse(s));
     }
 
-    // Convenience shortcuts
-    public static String cyan(String s)   { return markup("[cyan]" + s + "[/]"); }
-    public static String green(String s)  { return markup("[green]" + s + "[/]"); }
-    public static String yellow(String s) { return markup("[yellow]" + s + "[/]"); }
-    public static String red(String s)    { return markup("[red]" + s + "[/]"); }
-    public static String bold(String s)   { return markup("[bold]" + s + "[/]"); }
-    public static String dim(String s)    { return markup("[dim]" + s + "[/]"); }
-
-    public static void println(CommandInvocation inv, String s) {
-        inv.println(s);
-    }
-
     /** Render tamboui Text (with styled spans) to an ANSI escape string. */
     private static String textToAnsi(Text text) {
         var sb = new StringBuilder();

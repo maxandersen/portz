@@ -14,8 +14,8 @@ public class DetailView {
 
         inv.println("");
         inv.println("╔═══════════════════════════════════════════════════════════════╗");
-        inv.println(String.format("║ %s Port %s%s║", proc.status().symbol(),
-                Ansi.cyan(":" + port), pad(52 - String.valueOf(port).length())));
+        inv.println(Ansi.markup("║ " + proc.status().symbol() + " Port [cyan]:" + port + "[/]"
+                + pad(52 - String.valueOf(port).length()) + "║"));
         inv.println("╠═══════════════════════════════════════════════════════════════╣");
 
         field(inv, "Process:", proc.name());
@@ -23,11 +23,12 @@ public class DetailView {
         if (proc.projectName() != null) field(inv, "Project:", proc.projectName());
         if (proc.cwd() != null) {
             String cwd = proc.cwd().length() > 45 ? "..." + proc.cwd().substring(proc.cwd().length() - 42) : proc.cwd();
-            field(inv, "Path:", Ansi.dim(cwd));
+            field(inv, "Path:", Ansi.markup("[dim]" + cwd + "[/]"));
         }
         if (proc.framework() != null)
             field(inv, "Framework:", proc.framework().emoji() + " " + proc.framework().displayName());
-        if (proc.gitBranch() != null) field(inv, "Git Branch:", Ansi.green("🌿 " + proc.gitBranch()));
+        if (proc.gitBranch() != null)
+            field(inv, "Git Branch:", Ansi.markup("[green]🌿 " + proc.gitBranch() + "[/]"));
         field(inv, "Uptime:", proc.uptime());
         field(inv, "Memory:", "%.1f MB".formatted(proc.memoryMb()));
         field(inv, "Parent PID:", String.valueOf(proc.ppid()));
@@ -35,19 +36,18 @@ public class DetailView {
         inv.println("╠═══════════════════════════════════════════════════════════════╣");
         inv.println("║ Command:                                                      ║");
         for (String line : wrap(proc.command(), 59)) {
-            inv.println(String.format("║ %-61s ║", Ansi.dim(line)));
+            inv.println(String.format("║ %-61s ║", Ansi.markup("[dim]" + line + "[/]")));
         }
         inv.println("╚═══════════════════════════════════════════════════════════════╝");
         inv.println("");
 
-        String prompt = String.format("%s %s [y/N]: ",
-                Ansi.yellow("Kill this process?"), Ansi.dim("(PID " + proc.pid() + ")"));
+        String prompt = Ansi.markup("[yellow]Kill this process?[/] [dim](PID " + proc.pid() + ")[/] [y/N]: ");
         String raw = inv.getShell().readLine(new Prompt(prompt));
         String input = raw != null ? raw.trim().toLowerCase() : "";
         if ("y".equals(input)) {
             Platform.killGraceful(proc.pid());
         } else {
-            Ansi.println(inv, Ansi.dim("Cancelled."));
+            inv.println(Ansi.markup("[dim]Cancelled.[/]"));
         }
     }
 

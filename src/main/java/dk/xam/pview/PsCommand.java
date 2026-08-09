@@ -17,13 +17,13 @@ public class PsCommand implements Command<CommandInvocation> {
         try {
             var entries = Collector.collectAll(showAll);
             if (entries.isEmpty()) {
-                Ansi.println(inv, Ansi.yellow("No dev processes found."));
+                inv.println(Ansi.markup("[yellow]No dev processes found.[/]"));
                 return CommandResult.SUCCESS;
             }
             Renderer.renderPortsTable(entries, showAll, inv);
             return CommandResult.SUCCESS;
         } catch (Exception e) {
-            Ansi.println(inv, Ansi.red("Error: " + e.getMessage()));
+            inv.println(Ansi.markup("[red]Error: " + e.getMessage() + "[/]"));
             return CommandResult.FAILURE;
         }
     }

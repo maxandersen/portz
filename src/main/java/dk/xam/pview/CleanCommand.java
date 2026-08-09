@@ -19,44 +19,41 @@ public class CleanCommand implements Command<CommandInvocation> {
                     .toList();
 
             if (orphans.isEmpty()) {
-                Ansi.println(inv, Ansi.green("✓ No orphaned processes found."));
+                inv.println(Ansi.markup("[green]✓ No orphaned processes found.[/]"));
                 return CommandResult.SUCCESS;
             }
 
-            inv.println(String.format("%s %s orphaned process%s:",
-                    Ansi.yellow("Found"), Ansi.yellow(String.valueOf(orphans.size())),
-                    orphans.size() == 1 ? "" : "es"));
+            inv.println(Ansi.markup("[yellow]Found " + orphans.size() + "[/] orphaned process" +
+                    (orphans.size() == 1 ? ":" : "es:")));
             inv.println("");
 
             Renderer.renderOrphanTable(orphans, inv);
             inv.println("");
 
             for (var entry : orphans) {
-                String prompt = String.format("%s PID %s %s [y/N/a(ll)/q(uit)]: ",
-                        Ansi.yellow("Kill"), Ansi.bold(String.valueOf(entry.pid())),
-                        Ansi.dim(entry.process().name()));
+                String prompt = Ansi.markup("[yellow]Kill[/] PID [bold]" + entry.pid() + "[/] [dim]" + entry.process().name() + "[/] [y/N/a(ll)/q(uit)]: ");
                 String raw = inv.getShell().readLine(new Prompt(prompt));
                 String choice = raw != null ? raw.trim().toLowerCase() : "";
 
                 switch (choice) {
                     case "y" -> Platform.killGraceful(entry.pid());
                     case "a" -> {
-                        Ansi.println(inv, Ansi.yellow("Killing all orphans..."));
+                        inv.println(Ansi.markup("[yellow]Killing all orphans...[/]"));
                         orphans.forEach(e -> Platform.killGraceful(e.pid()));
-                        Ansi.println(inv, "\n" + Ansi.green("✓ Cleanup complete."));
+                        inv.println(Ansi.markup("\n[green]✓ Cleanup complete.[/]"));
                         return CommandResult.SUCCESS;
                     }
                     case "q" -> {
-                        Ansi.println(inv, Ansi.dim("Cancelled."));
+                        inv.println(Ansi.markup("[dim]Cancelled.[/]"));
                         return CommandResult.SUCCESS;
                     }
-                    default -> Ansi.println(inv, Ansi.dim("Skipped."));
+                    default -> inv.println(Ansi.markup("[dim]Skipped.[/]"));
                 }
             }
-            Ansi.println(inv, "\n" + Ansi.green("✓ Cleanup complete."));
+            inv.println(Ansi.markup("\n[green]✓ Cleanup complete.[/]"));
             return CommandResult.SUCCESS;
         } catch (Exception e) {
-            Ansi.println(inv, Ansi.red("Error: " + e.getMessage()));
+            inv.println(Ansi.markup("[red]Error: " + e.getMessage() + "[/]"));
             return CommandResult.FAILURE;
         }
     }

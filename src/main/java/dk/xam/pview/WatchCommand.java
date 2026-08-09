@@ -21,7 +21,7 @@ public class WatchCommand implements Command<CommandInvocation> {
 
     @Override
     public CommandResult execute(CommandInvocation inv) {
-        Ansi.println(inv, Ansi.cyan("Starting port monitor (Ctrl+C to exit)..."));
+        inv.println(Ansi.markup("[cyan]Starting port monitor (Ctrl+C to exit)...[/]"));
         inv.println("");
 
         Set<Integer> previousPorts = new HashSet<>();
@@ -42,18 +42,16 @@ public class WatchCommand implements Command<CommandInvocation> {
                             if (entry != null) {
                                 String fw = entry.process().framework() != null ? entry.process().framework().displayName() : "Unknown";
                                 String proj = entry.process().projectName() != null ? entry.process().projectName() : entry.process().name();
-                                inv.println(String.format("[%s] %s %s started — %s / %s / %s",
-                                        Ansi.dim(ts), entry.process().status().symbol(),
-                                        Ansi.cyan(":" + p), entry.process().name(), fw, proj));
+                                inv.println(Ansi.markup("[dim]" + ts + "[/] " + entry.process().status().symbol()
+                                        + " [cyan]:" + p + "[/] started — " + entry.process().name() + " / " + fw + " / " + proj));
                             }
                         }
                     }
                     for (int p : previousPorts) {
                         if (!currentPorts.contains(p)) {
-                            inv.println(String.format("[%s] %s %s stopped", Ansi.dim(ts), Ansi.red("✕"), Ansi.cyan(":" + p)));
+                            inv.println(Ansi.markup("[dim]" + ts + "[/] [red]✕[/] [cyan]:" + p + "[/] stopped"));
                         }
                     }
-                    // Clear screen
                     inv.print("\033[2J\033[H");
                 }
 
@@ -66,7 +64,7 @@ public class WatchCommand implements Command<CommandInvocation> {
             Thread.currentThread().interrupt();
             return CommandResult.SUCCESS;
         } catch (Exception e) {
-            Ansi.println(inv, Ansi.red("Error: " + e.getMessage()));
+            inv.println(Ansi.markup("[red]Error: " + e.getMessage() + "[/]"));
             return CommandResult.FAILURE;
         }
     }

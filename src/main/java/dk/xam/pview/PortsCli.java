@@ -28,7 +28,7 @@ public class PortsCli implements Command<CommandInvocation> {
             }
             return CommandResult.SUCCESS;
         } catch (Exception e) {
-            Ansi.println(inv, Ansi.red("Error: " + e.getMessage()));
+            inv.println(Ansi.markup("[red]Error: " + e.getMessage() + "[/]"));
             return CommandResult.FAILURE;
         }
     }
