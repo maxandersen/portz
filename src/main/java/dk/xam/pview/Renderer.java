@@ -187,31 +187,21 @@ public class Renderer {
     }
 
     static int getTerminalWidth(CommandInvocation inv) {
-        int detected = 0;
-        // Try stty via /dev/tty first — most reliable, works even when stdout is piped
+        // Trust aesh first — it owns the terminal connection
         try {
-            var proc = new ProcessBuilder("stty", "size")
-                    .redirectInput(new java.io.File("/dev/tty")).start();
-            String out = new String(proc.getInputStream().readAllBytes()).trim();
-            proc.waitFor();
-            String[] parts = out.split("\\s+");
-            if (parts.length >= 2) detected = Integer.parseInt(parts[1]);
+            Size size = inv.getShell().size();
+            if (size != null && size.getWidth() >= 40) return size.getWidth();
         } catch (Exception ignored) {}
-        // Try COLUMNS env var
-        if (detected <= 0) {
-            try {
-                String cols = System.getenv("COLUMNS");
-                if (cols != null) detected = Integer.parseInt(cols);
-            } catch (Exception ignored) {}
-        }
-        // Try aesh shell — can report wrong values in non-tty contexts
-        if (detected <= 0) {
-            try {
-                Size size = inv.getShell().size();
-                if (size != null && size.getWidth() > 0) detected = size.getWidth();
-            } catch (Exception ignored) {}
-        }
-        // Floor: never go below 80, fallback 120 if nothing detected
-        return detected >= 80 ? detected : (detected > 0 ? 80 : 120);
+        // Fallback: COLUMNS env var
+        try {
+            String cols = System.getenv("COLUMNS");
+            if (cols != null) {
+                int w = Integer.parseInt(cols);
+                if (w >= 40) return w;
+            }
+        } catch (Exception ignored) {}
+        // ponytail: no shelling out to stty — aesh should handle this.
+        // If neither aesh nor COLUMNS works, we're not in a real terminal.
+        return 120;
     }
 }
