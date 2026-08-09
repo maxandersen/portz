@@ -65,7 +65,7 @@ public class Renderer {
                 .rows(rows)
                 .widths(
                         Constraint.length(7),    // PORT
-                        Constraint.length(10),   // NAME
+                        Constraint.length(14),   // NAME
                         Constraint.length(6),    // PID
                         Constraint.fill(1),      // COMMAND - takes remaining space
                         Constraint.length(18),   // PROJECT
@@ -164,13 +164,9 @@ public class Renderer {
 
     /** Turn /Applications/Google Chrome.app/Contents/MacOS/Google Chrome -> Google Chrome */
     private static String shortenProcessName(String name) {
+        // ponytail: name is already extracted by Collector.extractDisplayName,
+        // but guard against raw paths leaking through
         if (name.contains("/")) {
-            int appIdx = name.indexOf(".app/");
-            if (appIdx > 0) {
-                String appPart = name.substring(0, appIdx);
-                int slash = appPart.lastIndexOf('/');
-                return slash >= 0 ? appPart.substring(slash + 1) : appPart;
-            }
             int slash = name.lastIndexOf('/');
             return slash >= 0 ? name.substring(slash + 1) : name;
         }

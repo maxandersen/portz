@@ -88,17 +88,17 @@ public class Collector {
 
     /** Extract a human-friendly process name from the full cmdline. */
     private static String extractDisplayName(String cmdline, String fallback) {
+        // For .app bundles, detect before splitting — binary path may contain spaces
+        // e.g. /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --flag
+        int appIdx = cmdline.indexOf(".app/");
+        if (appIdx > 0) {
+            String appPart = cmdline.substring(0, appIdx);
+            int slash = appPart.lastIndexOf('/');
+            return slash >= 0 ? appPart.substring(slash + 1) : appPart;
+        }
         // First token is the binary path/name
         String bin = cmdline.split("\\s+")[0];
         if (bin.contains("/")) {
-            // For .app bundles: /Applications/Foo.app/... -> Foo
-            int appIdx = bin.indexOf(".app/");
-            if (appIdx > 0) {
-                String appPart = bin.substring(0, appIdx);
-                int slash = appPart.lastIndexOf('/');
-                return slash >= 0 ? appPart.substring(slash + 1) : appPart;
-            }
-            // Otherwise basename
             int slash = bin.lastIndexOf('/');
             return slash >= 0 ? bin.substring(slash + 1) : bin;
         }
