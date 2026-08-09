@@ -23,12 +23,47 @@ jbang ports@maxandersen
 - **`portz clean`** — find and interactively kill orphaned/zombie dev processes
 - **`portz completion`** — generate shell completions (bash, zsh, fish, pwsh)
 
-### Extras
+### Smart Detection
+
+#### Frameworks (via `package.json`, `pom.xml`, `build.gradle`, or cmdline)
+
+| Ecosystem | Detected Frameworks |
+|---|---|
+| JavaScript | ⚡ Next.js, ⚡ Vite, 🅰️ Angular, 💿 Remix, 🚀 Astro, 🚂 Express, ⚡ Fastify, 💚 Nuxt |
+| Python | 🎸 Django, ⚡ FastAPI, 🌶️ Flask |
+| Ruby | 🛤️ Rails, 🐆 Puma |
+| Java | 🍃 Spring Boot, 🔮 Quarkus, 🔬 Micronaut |
+| Other | 🐹 Go, 🦀 Rust/Cargo |
+
+#### Docker Services (via image name)
+
+| Service | Image match |
+|---|---|
+| 🐘 PostgreSQL | `postgres` |
+| 🔴 Redis | `redis` |
+| 🍃 MongoDB | `mongo` |
+| 🐬 MySQL | `mysql`, `mariadb` |
+| 🌐 Nginx | `nginx` |
+| 🐇 RabbitMQ | `rabbitmq` |
+| 🔍 Elasticsearch | `elasticsearch` |
+| 📨 Kafka | `kafka` |
+| ☁️ LocalStack | `localstack` |
+
+#### Process Classification
+
+| Category | How it works |
+|---|---|
+| Dev process | Name matches: `node`, `python`, `java`, `go`, `cargo`, `ruby`, `mvn`, `gradle`, `npm`, `bun`, `deno`… or has a detected framework |
+| System process | Name matches: `Spotify`, `Chrome`, `Slack`, `Discord`, `sshd`, `launchd`… |
+| Status ● | Healthy — has a living parent process |
+| Status ◐ | Orphaned — parent is PID 1 (init/launchd) |
+| Status ✕ | Zombie — finished but not reaped |
+
+### More
 
 - **Port grouping** — multiple ports per process collapsed into one row (`--no-group` to expand)
-- **Framework detection** — Node.js (Next.js, Vite, Express…), Python (Django, Flask…), Ruby (Rails), Go, Rust, plus Java frameworks (Spring Boot, Quarkus, Micronaut) via `pom.xml`/`build.gradle`
-- **Docker service mapping** — PostgreSQL, Redis, MongoDB, Kafka, LocalStack…
 - **Smart rendering** — terminal-width-aware tables, ANSI-aware column widths, path collapsing, `~` home shortening
+- **Watch mode** — in-place redraw, green highlight for new processes (< 60s), red ghost rows for killed processes (5s fade)
 - **`NO_COLOR`** support — respects [no-color.org](https://no-color.org/) convention
 - **Cross-platform** — macOS, Linux, Windows (CWD via oshi FFM)
 
