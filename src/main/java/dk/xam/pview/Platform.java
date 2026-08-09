@@ -154,23 +154,17 @@ public class Platform {
 
     private static Map<Long, String> collectCwdsWindows(Set<Long> pids) {
         if (pids.isEmpty()) return Map.of();
+        // Use oshi FFM — reads real CWD via NtQueryInformationProcess/PEB
+        var si = new oshi.ffm.SystemInfo();
+        var os = si.getOperatingSystem();
         var map = new HashMap<Long, String>();
-        // ponytail: ProcessHandle doesn't expose CWD on Windows.
-        // Use PowerShell to read it via .NET Process class. WorkingDirectory is
-        // usually empty, so fall back to the exe's directory.
-        try {
-            String pidFilter = String.join(",", pids.stream().map(String::valueOf).toList());
-            String script = "$pids = @(%s); foreach ($id in $pids) { try { $p = [System.Diagnostics.Process]::GetProcessById($id); $cwd = $p.StartInfo.WorkingDirectory; if (-not $cwd) { $cwd = [IO.Path]::GetDirectoryName($p.MainModule.FileName) }; Write-Output \"$id|$cwd\" } catch {} }"
-                    .formatted(pidFilter);
-            String stdout = exec("powershell", "-NoProfile", "-Command", script);
-            for (String line : stdout.lines().toList()) {
-                String[] parts = line.split("\\|", 2);
-                if (parts.length == 2 && !parts[1].isBlank()) {
-                    try { map.put(Long.parseLong(parts[0].trim()), parts[1].trim()); }
-                    catch (NumberFormatException _) {}
-                }
+        for (long pid : pids) {
+            var proc = os.getProcess((int) pid);
+            if (proc != null) {
+                String cwd = proc.getCurrentWorkingDirectory();
+                if (cwd != null && !cwd.isBlank()) map.put(pid, cwd);
             }
-        } catch (Exception _) {}
+        }
         return map;
     }
 

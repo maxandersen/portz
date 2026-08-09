@@ -46,6 +46,11 @@
             <version>0.4.0</version>
         </dependency>
         <dependency>
+            <groupId>com.github.oshi</groupId>
+            <artifactId>oshi-core-ffm</artifactId>
+            <version>7.4.4</version>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-aesh</artifactId>
         </dependency>
