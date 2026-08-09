@@ -172,6 +172,24 @@ public class Platform {
         }
     }
 
+    static Map<Long, Double> getCpuSample(String pidList) throws Exception {
+        var pb = new ProcessBuilder("ps", "-o", "pid,%cpu", "-p", pidList);
+        var proc = pb.start();
+        String stdout = new String(proc.getInputStream().readAllBytes());
+        proc.waitFor();
+
+        var map = new HashMap<Long, Double>();
+        for (String line : stdout.lines().skip(1).toList()) {
+            String[] parts = line.trim().split("\\s+");
+            if (parts.length >= 2) {
+                try {
+                    map.put(Long.parseLong(parts[0]), Double.parseDouble(parts[1]));
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        return map;
+    }
+
     private static long parseLong(String s) {
         try { return Long.parseLong(s.trim()); } catch (NumberFormatException e) { return 0; }
     }

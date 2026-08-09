@@ -16,6 +16,7 @@ public class DockerInfo {
             if (lower.contains("rabbitmq")) return "RabbitMQ";
             if (lower.contains("elasticsearch")) return "Elasticsearch";
             if (lower.contains("kafka")) return "Kafka";
+            if (lower.contains("localstack")) return "LocalStack";
             return null;
         }
     }
