@@ -9,10 +9,10 @@ import org.aesh.command.CommandResult;
 import org.aesh.command.invocation.CommandInvocation;
 import org.aesh.command.option.Option;
 
+import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 @CommandDefinition(name = "watch", description = "Real-time monitoring (poll every 1s)")
 public class WatchCommand implements Command<CommandInvocation> {
@@ -21,55 +21,66 @@ public class WatchCommand implements Command<CommandInvocation> {
     boolean showAll;
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final long GHOST_TTL_SECONDS = 5;
+
+    record Ghost(PortEntry entry, Instant diedAt) {}
 
     @Override
     public CommandResult execute(CommandInvocation inv) {
         inv.println(Ansi.markup("[cyan]Starting port monitor (Ctrl+C to exit)...[/]"));
 
-        Set<Integer> previousPorts = new HashSet<>();
+        var previousByPid = new HashMap<Long, PortEntry>();
+        var ghosts = new LinkedHashMap<Long, Ghost>(); // pid -> ghost
 
         try {
             var backend = Renderer.createBackend();
-            // Start with a reasonable height, InlineDisplay will resize dynamically
             try (var display = InlineDisplay.withBackend(2, backend)) {
                 while (true) {
                     var entries = Collector.collectAll(showAll);
-                    var currentPorts = new HashSet<Integer>();
-                    entries.forEach(e -> currentPorts.add(e.port()));
+                    var currentByPid = new HashMap<Long, PortEntry>();
+                    entries.forEach(e -> currentByPid.putIfAbsent(e.pid(), e));
 
                     String ts = LocalTime.now().format(TIME_FMT);
+                    Instant now = Instant.now();
 
-                    // Log changes above the display
-                    if (!previousPorts.isEmpty()) {
-                        for (int p : currentPorts) {
-                            if (!previousPorts.contains(p)) {
-                                var entry = entries.stream().filter(e -> e.port() == p).findFirst().orElse(null);
-                                if (entry != null) {
-                                    String fw = entry.process().framework() != null ? entry.process().framework().displayName() : "Unknown";
-                                    String proj = entry.process().projectName() != null ? entry.process().projectName() : entry.process().name();
-                                    display.println(MarkupParser.parse(
-                                            "[dim]%s[/] [green]●[/] [cyan]:%d[/] started — %s / %s / %s".formatted(
-                                                    ts, p, entry.process().name(), fw, proj)));
-                                }
+                    // Detect changes
+                    if (!previousByPid.isEmpty()) {
+                        // New ports
+                        for (var e : entries) {
+                            if (!previousByPid.containsKey(e.pid())) {
+                                String fw = e.process().framework() != null ? e.process().framework().displayName() : "Unknown";
+                                String proj = e.process().projectName() != null ? e.process().projectName() : e.process().name();
+                                display.println(MarkupParser.parse(
+                                        "[dim]%s[/] [green]●[/] [cyan]:%d[/] started — %s / %s / %s".formatted(
+                                                ts, e.port(), e.process().name(), fw, proj)));
+                                // Remove from ghosts if it came back
+                                ghosts.remove(e.pid());
                             }
                         }
-                        for (int p : previousPorts) {
-                            if (!currentPorts.contains(p)) {
+                        // Dead processes → become ghosts
+                        for (var prev : previousByPid.entrySet()) {
+                            if (!currentByPid.containsKey(prev.getKey())) {
+                                ghosts.put(prev.getKey(), new Ghost(prev.getValue(), now));
                                 display.println(MarkupParser.parse(
-                                        "[dim]%s[/] [red]✕[/] [cyan]:%d[/] stopped".formatted(ts, p)));
+                                        "[dim]%s[/] [red]✕[/] [cyan]:%d[/] stopped".formatted(
+                                                ts, prev.getValue().port())));
                             }
                         }
                     }
 
-                    // Build the table
-                    var table = Renderer.buildPortsTable(entries, showAll, true);
-                    int tableHeight = table.height();
+                    // Prune expired ghosts
+                    ghosts.entrySet().removeIf(e ->
+                            now.getEpochSecond() - e.getValue().diedAt().getEpochSecond() > GHOST_TTL_SECONDS);
 
-                    // Render in-place — InlineDisplay redraws without scrolling
+                    // Build table with ghost rows
+                    var ghostEntries = ghosts.values().stream().map(Ghost::entry).toList();
+                    var built = Renderer.buildPortsTable(entries, showAll, true, ghostEntries);
+
+                    // Render in-place
                     display.render((area, buffer) ->
-                            table.table().render(area, buffer, new TableState()), tableHeight, -1, -1);
+                            built.table().render(area, buffer, new TableState()), built.height(), -1, -1);
 
-                    previousPorts = currentPorts;
+                    previousByPid = currentByPid;
                     Thread.sleep(1000);
                 }
             }

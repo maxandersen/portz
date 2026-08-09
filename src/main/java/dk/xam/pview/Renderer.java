@@ -22,6 +22,7 @@ public class Renderer {
 
     private static final String HOME = System.getProperty("user.home");
     private static final Style NEW_ROW = color(Style.EMPTY.fg(Color.LIGHT_GREEN));
+    private static final Style DEAD_ROW = color(Style.EMPTY.fg(Color.RED).dim());
     private static final Style CYAN = color(Style.EMPTY.fg(Color.CYAN));
     private static final Style GREEN = color(Style.EMPTY.fg(Color.GREEN));
     private static final Style YELLOW = color(Style.EMPTY.fg(Color.YELLOW));
@@ -35,6 +36,11 @@ public class Renderer {
 
     /** Build a ports table without rendering. Used by watch mode and renderPortsTable. */
     static BuiltTable buildPortsTable(List<PortEntry> entries, boolean showAll, boolean group) {
+        return buildPortsTable(entries, showAll, group, List.of());
+    }
+
+    /** Build a ports table with optional ghost (recently dead) entries. */
+    static BuiltTable buildPortsTable(List<PortEntry> entries, boolean showAll, boolean group, List<PortEntry> ghosts) {
         var header = Row.from(
                 Cell.from("PORT").style(HEADER), Cell.from("NAME").style(HEADER),
                 Cell.from("PID").style(HEADER), Cell.from("COMMAND").style(HEADER),
@@ -72,15 +78,30 @@ public class Renderer {
             }
         }
 
+        // Add ghost rows (recently dead processes) with red/dim style
+        for (var e : ghosts) {
+            rows.add(Row.from(
+                    Cell.from(":" + e.port()), Cell.from(nameOf(e.process())),
+                    Cell.from(String.valueOf(e.pid())), Cell.from(tildeHome(e.process().command())),
+                    Cell.from(projectOf(e.process())), Cell.from(frameworkOf(e.process())),
+                    Cell.from("✕"), Cell.from("✕")
+            ).style(DEAD_ROW));
+            totalLines++;
+        }
+
+        // Use all entries (live + ghosts) for column width calculation
+        var allEntries = new ArrayList<>(entries);
+        allEntries.addAll(ghosts);
+
         var table = Table.builder()
                 .header(header).rows(rows)
-                .widths(Constraint.max(maxCol(entries, e -> ":" + e.port(), 4)),
-                        Constraint.max(maxCol(entries, e -> nameOf(e.process()), 4)),
-                        Constraint.max(maxCol(entries, e -> String.valueOf(e.pid()), 3)),
+                .widths(Constraint.max(maxCol(allEntries, e -> ":" + e.port(), 4)),
+                        Constraint.max(maxCol(allEntries, e -> nameOf(e.process()), 4)),
+                        Constraint.max(maxCol(allEntries, e -> String.valueOf(e.pid()), 3)),
                         Constraint.fill(1),
-                        Constraint.max(maxCol(entries, e -> projectOf(e.process()), 7)),
-                        Constraint.max(maxCol(entries, e -> frameworkOf(e.process()), 9)),
-                        Constraint.max(maxCol(entries, e -> e.process().uptime(), 6)),
+                        Constraint.max(maxCol(allEntries, e -> projectOf(e.process()), 7)),
+                        Constraint.max(maxCol(allEntries, e -> frameworkOf(e.process()), 9)),
+                        Constraint.max(maxCol(allEntries, e -> e.process().uptime(), 6)),
                         Constraint.max(6))
                 .columnSpacing(1)
                 .block(Block.builder().borders(Borders.ALL).borderType(BorderType.ROUNDED).build())
