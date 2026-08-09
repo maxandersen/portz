@@ -130,15 +130,15 @@ public class Renderer {
     static void renderInline(Table table, int rowCount, CommandInvocation inv) {
         int tableHeight = rowCount + 3; // top border + header + rows + bottom border
         try {
-            // ponytail: quarkus-aesh uses AeshStreamConnection with hardcoded 120x40 size
-            // and Shell.connection() returns null. Create our own AeshBackend to get real
-            // terminal size, but use InlineDisplay.release() to avoid closing the terminal
-            // (quarkus-aesh owns it).
+            // WORKAROUND: quarkusio/quarkus#55935
+            // quarkus-aesh Shell.connection() returns null and terminal size is hardcoded
+            // to 120x40 in AeshStreamConnection. Create our own AeshBackend to get real
+            // terminal size. Use release() not close() to avoid fighting with
+            // quarkus-aesh's terminal session ownership.
             var backend = new AeshBackend();
             var display = InlineDisplay.withBackend(tableHeight, backend);
             display.render((area, buffer) -> table.render(area, buffer, new TableState()));
             display.release();
-            // Don't close backend — it would fight with quarkus-aesh's terminal
         } catch (Exception e) {
             // Fallback: render to buffer manually (no real terminal available)
             renderToBuffer(table, tableHeight, 120, inv);
@@ -155,9 +155,10 @@ public class Renderer {
 
     /**
      * Compute column width from data content.
-     * ponytail: Constraint.fit() only works in Toolkit DSL (tamboui#413).
-     * We compute widths from cell values and use Constraint.max() so columns
-     * can shrink on narrow terminals.
+     * WORKAROUND: tamboui/tamboui#413
+     * Constraint.fit() only works in Toolkit DSL (LayoutSolver has no handler
+     * for Fit at the raw widget level). We compute widths from cell values
+     * and use Constraint.max() so columns can shrink on narrow terminals.
      */
     static int maxCol(List<PortEntry> entries, java.util.function.Function<PortEntry, String> fn, int headerLen) {
         int max = headerLen;
