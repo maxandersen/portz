@@ -1,182 +1,95 @@
 package dk.xam.pview;
 
-import java.util.ArrayList;
+import org.aesh.command.invocation.CommandInvocation;
+import org.aesh.terminal.tty.Size;
+import org.aesh.util.table.Table;
+import org.aesh.util.table.TableStyle;
+
 import java.util.List;
 
 public class Renderer {
 
-    public static void renderPortsTable(List<PortEntry> entries, boolean showAll) {
+    private static final String HOME = System.getProperty("user.home");
+
+    public static void renderPortsTable(List<PortEntry> entries, boolean showAll, CommandInvocation inv) {
         if (entries.isEmpty()) {
-            System.out.println(Ansi.yellow("No listening ports found."));
+            Ansi.println(inv, Ansi.yellow("No listening ports found."));
             return;
         }
 
-        String[] headers = {"PORT", "NAME", "PID", "COMMAND", "PROJECT", "FRAMEWORK", "UPTIME", "STATUS"};
-        var rows = new ArrayList<String[]>();
-        for (var e : entries) {
-            String fw = e.process().framework() != null
-                    ? e.process().framework().emoji() + " " + e.process().framework().displayName()
-                    : "-";
-            rows.add(new String[]{
-                    Ansi.cyan(":" + e.port()),
-                    shortenProcessName(e.process().name()),
-                    String.valueOf(e.pid()),
-                    tildeHome(e.process().command()),
-                    e.process().projectName() != null ? e.process().projectName() : "-",
-                    fw,
-                    e.process().uptime(),
-                    e.process().status().symbol()
-            });
-        }
+        int width = getTerminalWidth(inv);
 
-        printTable(headers, rows);
+        String output = Table.<PortEntry>builder()
+                .maxWidth(width)
+                .style(TableStyle.DUCKDB)
+                .column("PORT", e -> ":" + e.port())
+                .column("NAME", e -> shortenProcessName(e.process().name()))
+                .column("PID", e -> String.valueOf(e.pid()))
+                .column("COMMAND", e -> truncateCommand(tildeHome(e.process().command()), width))
+                .column("PROJECT", e -> e.process().projectName() != null ? e.process().projectName() : "-")
+                .column("FRAMEWORK", e -> e.process().framework() != null
+                        ? e.process().framework().emoji() + " " + e.process().framework().displayName()
+                        : "-")
+                .column("UPTIME", e -> e.process().uptime())
+                .column("STATUS", e -> e.process().status().rawSymbol())
+                .build()
+                .render(entries);
+
+        inv.print(output);
 
         // Footer
         String filter = showAll ? "" : " · " + Ansi.dim("--all to show everything");
-        System.out.printf("%n%s %s active%s%n",
+        inv.println(String.format("%s %s active%s",
                 Ansi.cyan(String.valueOf(entries.size())),
                 entries.size() == 1 ? "port" : "ports",
-                filter);
-        System.out.println("Run " + Ansi.dim("ports <number>") + " for details");
+                filter));
+        inv.println("Run " + Ansi.dim("ports <number>") + " for details");
     }
 
-    public static void renderOrphanTable(List<PortEntry> orphans) {
-        String[] headers = {"PID", "PROCESS", "PROJECT", "UPTIME", "STATUS"};
-        var rows = new ArrayList<String[]>();
-        for (var e : orphans) {
-            rows.add(new String[]{
-                    String.valueOf(e.pid()),
-                    e.process().name(),
-                    e.process().projectName() != null ? e.process().projectName() : "-",
-                    e.process().uptime(),
-                    e.process().status().symbol()
-            });
-        }
-        printTable(headers, rows);
-    }
+    public static void renderOrphanTable(List<PortEntry> orphans, CommandInvocation inv) {
+        int width = getTerminalWidth(inv);
 
-    // ponytail: simple table renderer, ~30 lines beats pulling a dependency
-    private static void printTable(String[] headers, List<String[]> rows) {
-        int cols = headers.length;
-        int[] widths = new int[cols];
-        for (int i = 0; i < cols; i++) widths[i] = stripAnsi(headers[i]).length();
-        for (var row : rows) {
-            for (int i = 0; i < cols; i++) {
-                widths[i] = Math.max(widths[i], stripAnsi(row[i]).length());
-            }
-        }
+        String output = Table.<PortEntry>builder()
+                .maxWidth(width)
+                .style(TableStyle.DUCKDB)
+                .column("PID", e -> String.valueOf(e.pid()))
+                .column("PROCESS", e -> e.process().name())
+                .column("PROJECT", e -> e.process().projectName() != null ? e.process().projectName() : "-")
+                .column("UPTIME", e -> e.process().uptime())
+                .column("STATUS", e -> e.process().status().rawSymbol())
+                .build()
+                .render(orphans);
 
-        // Cap total table width to terminal width by truncating the widest column
-        int termWidth = getTerminalWidth();
-        int overhead = cols + 1; // border chars
-        for (int w : widths) overhead += 2; // cell padding (1 each side)
-        int contentWidth = 0;
-        for (int w : widths) contentWidth += w;
-        int totalWidth = overhead + contentWidth;
-        while (totalWidth > termWidth && cols > 1) {
-            // Shrink the widest column by 1
-            int widest = 0;
-            for (int i = 1; i < cols; i++) {
-                if (widths[i] > widths[widest]) widest = i;
-            }
-            if (widths[widest] <= 3) break; // don't shrink below minimum
-            widths[widest]--;
-            totalWidth--;
-        }
-
-        System.out.println(border('╭', '┬', '╮', widths));
-        System.out.println(formatRow(headers, widths));
-        System.out.println(border('├', '┼', '┤', widths));
-        for (var row : rows) {
-            System.out.println(formatRow(row, widths));
-        }
-        System.out.println(border('╰', '┴', '╯', widths));
-    }
-
-    private static String formatRow(String[] cells, int[] widths) {
-        var sb = new StringBuilder("│");
-        for (int i = 0; i < cells.length; i++) {
-            String cell = cells[i];
-            int visible = stripAnsi(cell).length();
-            if (visible > widths[i]) {
-                // Truncate with ellipsis — must handle ANSI codes
-                cell = truncateAnsi(cell, widths[i]);
-                visible = stripAnsi(cell).length();
-            }
-            int pad = widths[i] - visible;
-            sb.append(' ').append(cell).append(" ".repeat(pad + 1)).append('│');
-        }
-        return sb.toString();
-    }
-
-    private static String truncateAnsi(String s, int maxVisible) {
-        // For path-like strings, try collapsing path segments first
-        String plain = stripAnsi(s);
-        if (plain.length() > maxVisible && plain.contains("/")) {
-            return collapsePath(plain, maxVisible);
-        }
-        if (maxVisible <= 1) return "…";
-        var sb = new StringBuilder();
-        int visible = 0;
-        boolean inEsc = false;
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '\033') { inEsc = true; sb.append(c); continue; }
-            if (inEsc) { sb.append(c); if (c == 'm') inEsc = false; continue; }
-            if (visible >= maxVisible - 1) { sb.append('…').append("\033[0m"); return sb.toString(); }
-            sb.append(c);
-            visible++;
-        }
-        return sb.toString();
+        inv.print(output);
     }
 
     /**
-     * Collapse path segments to fit within maxLen.
-     * /Users/max/.sdkman/candidates/java/current/bin/java -jar foo.jar
-     * -> /U/m/.s/c/java/current/bin/java -jar foo.jar
-     * Collapses from left, keeps rightmost segments + args intact.
+     * Truncate command to fit. Reserves ~40% of terminal width for COMMAND,
+     * collapses path segments from left before hard-truncating.
      */
-    private static String collapsePath(String s, int maxLen) {
-        // Split into command (first token) and args
-        int spaceIdx = s.indexOf(' ');
-        String path = spaceIdx > 0 ? s.substring(0, spaceIdx) : s;
-        String args = spaceIdx > 0 ? s.substring(spaceIdx) : "";
+    private static String truncateCommand(String cmd, int termWidth) {
+        int maxLen = termWidth > 0 ? Math.max(30, (termWidth * 40) / 100) : 60;
+        if (cmd.length() <= maxLen) return cmd;
 
-        if (path.length() + args.length() <= maxLen) return s;
+        // Split into binary path (first token) and args
+        int space = cmd.indexOf(' ');
+        String path = space > 0 ? cmd.substring(0, space) : cmd;
+        String args = space > 0 ? cmd.substring(space) : "";
 
-        String[] segments = path.split("/");
-        // Collapse segments from left (index 1 onward, skip empty root)
-        // until it fits or we run out of segments to collapse
-        for (int i = 1; i < segments.length - 1; i++) {
-            if (segments[i].length() > 1) {
-                segments[i] = segments[i].substring(0, 1);
+        // Collapse path segments from left: /Users/max/.sdkman/candidates -> /U/m/.s/c
+        if (path.contains("/")) {
+            String[] segs = path.split("/");
+            for (int i = 1; i < segs.length - 1; i++) {
+                if (segs[i].length() > 1) segs[i] = segs[i].substring(0, 1);
+                String collapsed = String.join("/", segs) + args;
+                if (collapsed.length() <= maxLen) return collapsed;
             }
-            String collapsed = String.join("/", segments) + args;
-            if (collapsed.length() <= maxLen) return collapsed;
+            path = String.join("/", segs);
         }
 
-        // Still too long — truncate args
-        String collapsed = String.join("/", segments);
-        if (collapsed.length() >= maxLen - 1) {
-            return collapsed.substring(0, maxLen - 1) + "…";
-        }
-        int argsRoom = maxLen - collapsed.length() - 1;
-        if (argsRoom > 0 && !args.isEmpty()) {
-            return collapsed + args.substring(0, Math.min(args.length(), argsRoom)) + "…";
-        }
-        return collapsed;
+        String result = path + args;
+        return result.length() <= maxLen ? result : result.substring(0, maxLen - 1) + "…";
     }
-
-    private static String border(char left, char mid, char right, int[] widths) {
-        var sb = new StringBuilder().append(left);
-        for (int i = 0; i < widths.length; i++) {
-            sb.append("─".repeat(widths[i] + 2));
-            sb.append(i < widths.length - 1 ? mid : right);
-        }
-        return sb.toString();
-    }
-
-    private static final String HOME = System.getProperty("user.home");
 
     private static String tildeHome(String s) {
         return HOME != null && s.startsWith(HOME) ? "~" + s.substring(HOME.length()) : s;
@@ -185,7 +98,6 @@ public class Renderer {
     /** Turn /Applications/Google Chrome.app/Contents/MacOS/Google Chrome -> Google Chrome */
     private static String shortenProcessName(String name) {
         if (name.contains("/")) {
-            // Use filename, but for .app bundles use the app name
             int appIdx = name.indexOf(".app/");
             if (appIdx > 0) {
                 String appPart = name.substring(0, appIdx);
@@ -198,20 +110,34 @@ public class Renderer {
         return name;
     }
 
-    private static String stripAnsi(String s) {
-        return s.replaceAll("\033\\[[0-9;]*m", "");
-    }
-
-    private static int getTerminalWidth() {
-        // ponytail: stty works even when stdout is piped, tput doesn't
+    static int getTerminalWidth(CommandInvocation inv) {
+        int detected = 0;
+        // Try aesh shell first
         try {
-            var proc = new ProcessBuilder("stty", "size").redirectInput(new java.io.File("/dev/tty")).start();
-            String out = new String(proc.getInputStream().readAllBytes()).trim();
-            proc.waitFor();
-            // Output: "rows cols"
-            String[] parts = out.split("\\s+");
-            if (parts.length >= 2) return Integer.parseInt(parts[1]);
+            Size size = inv.getShell().size();
+            if (size != null && size.getWidth() > 0) detected = size.getWidth();
         } catch (Exception ignored) {}
-        return 120;
+        // Try stty via /dev/tty
+        if (detected == 0) {
+            try {
+                var proc = new ProcessBuilder("stty", "size")
+                        .redirectInput(new java.io.File("/dev/tty")).start();
+                String out = new String(proc.getInputStream().readAllBytes()).trim();
+                proc.waitFor();
+                String[] parts = out.split("\\s+");
+                if (parts.length >= 2) detected = Integer.parseInt(parts[1]);
+            } catch (Exception ignored) {}
+        }
+        // Try COLUMNS env var
+        if (detected == 0) {
+            try {
+                String cols = System.getenv("COLUMNS");
+                if (cols != null) detected = Integer.parseInt(cols);
+            } catch (Exception ignored) {}
+        }
+        // ponytail: 80 is the universal "I don't actually know" default from tput/stty.
+        // A real wide terminal reports its actual width. Treat <=80 as unknown
+        // and return 0 (unlimited) so aesh Table sizes to content.
+        return detected > 80 ? detected : 0;
     }
 }

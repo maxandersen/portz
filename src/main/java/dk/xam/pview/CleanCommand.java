@@ -1,14 +1,16 @@
 package dk.xam.pview;
 
-import picocli.CommandLine.Command;
+import org.aesh.command.Command;
+import org.aesh.command.CommandDefinition;
+import org.aesh.command.CommandResult;
+import org.aesh.command.invocation.CommandInvocation;
+import org.aesh.readline.prompt.Prompt;
 
-import java.util.Scanner;
-
-@Command(name = "clean", description = "Find and interactively kill orphaned processes")
-public class CleanCommand implements Runnable {
+@CommandDefinition(name = "clean", description = "Find and interactively kill orphaned processes")
+public class CleanCommand implements Command<CommandInvocation> {
 
     @Override
-    public void run() {
+    public CommandResult execute(CommandInvocation inv) {
         try {
             var entries = Collector.collectAll(true);
             var orphans = entries.stream()
@@ -17,43 +19,45 @@ public class CleanCommand implements Runnable {
                     .toList();
 
             if (orphans.isEmpty()) {
-                System.out.println(Ansi.green("✓ No orphaned processes found."));
-                return;
+                Ansi.println(inv, Ansi.green("✓ No orphaned processes found."));
+                return CommandResult.SUCCESS;
             }
 
-            System.out.printf("%s %s orphaned process%s:%n%n",
+            inv.println(String.format("%s %s orphaned process%s:",
                     Ansi.yellow("Found"), Ansi.yellow(String.valueOf(orphans.size())),
-                    orphans.size() == 1 ? "" : "es");
+                    orphans.size() == 1 ? "" : "es"));
+            inv.println("");
 
-            Renderer.renderOrphanTable(orphans);
-            System.out.println();
+            Renderer.renderOrphanTable(orphans, inv);
+            inv.println("");
 
-            var scanner = new Scanner(System.in);
             for (var entry : orphans) {
-                System.out.printf("%s PID %s %s [y/N/a(ll)/q(uit)]: ",
+                String prompt = String.format("%s PID %s %s [y/N/a(ll)/q(uit)]: ",
                         Ansi.yellow("Kill"), Ansi.bold(String.valueOf(entry.pid())),
                         Ansi.dim(entry.process().name()));
-                System.out.flush();
+                String raw = inv.getShell().readLine(new Prompt(prompt));
+                String choice = raw != null ? raw.trim().toLowerCase() : "";
 
-                String choice = scanner.nextLine().trim().toLowerCase();
                 switch (choice) {
                     case "y" -> Platform.killGraceful(entry.pid());
                     case "a" -> {
-                        System.out.println(Ansi.yellow("Killing all orphans..."));
+                        Ansi.println(inv, Ansi.yellow("Killing all orphans..."));
                         orphans.forEach(e -> Platform.killGraceful(e.pid()));
-                        System.out.println("\n" + Ansi.green("✓ Cleanup complete."));
-                        return;
+                        Ansi.println(inv, "\n" + Ansi.green("✓ Cleanup complete."));
+                        return CommandResult.SUCCESS;
                     }
                     case "q" -> {
-                        System.out.println(Ansi.dim("Cancelled."));
-                        return;
+                        Ansi.println(inv, Ansi.dim("Cancelled."));
+                        return CommandResult.SUCCESS;
                     }
-                    default -> System.out.println(Ansi.dim("Skipped."));
+                    default -> Ansi.println(inv, Ansi.dim("Skipped."));
                 }
             }
-            System.out.println("\n" + Ansi.green("✓ Cleanup complete."));
+            Ansi.println(inv, "\n" + Ansi.green("✓ Cleanup complete."));
+            return CommandResult.SUCCESS;
         } catch (Exception e) {
-            System.err.println(Ansi.red("Error: " + e.getMessage()));
+            Ansi.println(inv, Ansi.red("Error: " + e.getMessage()));
+            return CommandResult.FAILURE;
         }
     }
 }

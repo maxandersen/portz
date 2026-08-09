@@ -1,36 +1,35 @@
 package dk.xam.pview;
 
-import io.quarkus.picocli.runtime.annotations.TopCommand;
-import picocli.CommandLine;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
+import org.aesh.command.Command;
+import org.aesh.command.CommandDefinition;
+import org.aesh.command.CommandResult;
+import org.aesh.command.invocation.CommandInvocation;
+import org.aesh.command.option.Option;
 
-@TopCommand
-@Command(name = "ports",
-         description = "A beautiful CLI tool to inspect and manage processes listening on your machine's ports",
-         mixinStandardHelpOptions = true,
-         subcommands = { PsCommand.class, WatchCommand.class, CleanCommand.class })
-public class PortsCli implements Runnable {
+@CommandDefinition(name = "ports",
+        description = "A beautiful CLI tool to inspect and manage processes listening on your machine's ports",
+        groupCommands = { PsCommand.class, WatchCommand.class, CleanCommand.class })
+public class PortsCli implements Command<CommandInvocation> {
 
-    @Option(names = "--all", description = "Show all ports including system services")
+    @Option(name = "all", hasValue = false, description = "Show all ports including system services")
     boolean showAll;
 
-    @Parameters(index = "0", arity = "0..1", description = "Port number to inspect in detail")
+    @Option(name = "port", shortName = 'p', description = "Port number to inspect in detail")
     Integer port;
 
     @Override
-    public void run() {
+    public CommandResult execute(CommandInvocation inv) {
         try {
             if (port != null) {
-                DetailView.show(port);
+                DetailView.show(port, inv);
             } else {
                 var entries = Collector.collectAll(showAll);
-                Renderer.renderPortsTable(entries, showAll);
+                Renderer.renderPortsTable(entries, showAll, inv);
             }
+            return CommandResult.SUCCESS;
         } catch (Exception e) {
-            System.err.println(Ansi.red("Error: " + e.getMessage()));
-            System.exit(1);
+            Ansi.println(inv, Ansi.red("Error: " + e.getMessage()));
+            return CommandResult.FAILURE;
         }
     }
 }

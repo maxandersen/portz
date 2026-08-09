@@ -1,26 +1,30 @@
 package dk.xam.pview;
 
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
+import org.aesh.command.Command;
+import org.aesh.command.CommandDefinition;
+import org.aesh.command.CommandResult;
+import org.aesh.command.invocation.CommandInvocation;
+import org.aesh.command.option.Option;
 
-@Command(name = "ps", description = "Show all running dev processes")
-public class PsCommand implements Runnable {
+@CommandDefinition(name = "ps", description = "Show all running dev processes")
+public class PsCommand implements Command<CommandInvocation> {
 
-    @Option(names = "--all", description = "Show all processes, not just dev processes")
+    @Option(name = "all", hasValue = false, description = "Show all processes, not just dev processes")
     boolean showAll;
 
     @Override
-    public void run() {
+    public CommandResult execute(CommandInvocation inv) {
         try {
             var entries = Collector.collectAll(showAll);
             if (entries.isEmpty()) {
-                System.out.println(Ansi.yellow("No dev processes found."));
-                return;
+                Ansi.println(inv, Ansi.yellow("No dev processes found."));
+                return CommandResult.SUCCESS;
             }
-            // Reuse the ports table for now — same data, same view
-            Renderer.renderPortsTable(entries, showAll);
+            Renderer.renderPortsTable(entries, showAll, inv);
+            return CommandResult.SUCCESS;
         } catch (Exception e) {
-            System.err.println(Ansi.red("Error: " + e.getMessage()));
+            Ansi.println(inv, Ansi.red("Error: " + e.getMessage()));
+            return CommandResult.FAILURE;
         }
     }
 }
