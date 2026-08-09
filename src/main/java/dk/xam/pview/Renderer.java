@@ -16,13 +16,14 @@ import dev.tamboui.widgets.table.TableState;
 import org.aesh.command.invocation.CommandInvocation;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 public class Renderer {
 
     private static final String HOME = System.getProperty("user.home");
     private static final Style NEW_ROW = color(Style.EMPTY.fg(Color.LIGHT_GREEN));
-    private static final Style DEAD_ROW = color(Style.EMPTY.fg(Color.RED).dim());
+    private static final Style DEAD_ROW = color(Style.EMPTY.fg(Color.LIGHT_RED));
     private static final Style CYAN = color(Style.EMPTY.fg(Color.CYAN));
     private static final Style GREEN = color(Style.EMPTY.fg(Color.GREEN));
     private static final Style YELLOW = color(Style.EMPTY.fg(Color.YELLOW));
@@ -41,6 +42,13 @@ public class Renderer {
 
     /** Build a ports table with optional ghost (recently dead) entries. */
     static BuiltTable buildPortsTable(List<PortEntry> entries, boolean showAll, boolean group, List<PortEntry> ghosts) {
+        // Merge live + ghost entries, sorted by port, for proper interleaving
+        var ghostPids = new HashSet<Long>();
+        ghosts.forEach(e -> ghostPids.add(e.pid()));
+        var allEntries = new ArrayList<>(entries);
+        allEntries.addAll(ghosts);
+        allEntries.sort(java.util.Comparator.comparingInt(PortEntry::port));
+
         var header = Row.from(
                 Cell.from("PORT").style(HEADER), Cell.from("NAME").style(HEADER),
                 Cell.from("PID").style(HEADER), Cell.from("COMMAND").style(HEADER),
@@ -52,46 +60,33 @@ public class Renderer {
 
         if (group) {
             var grouped = new java.util.LinkedHashMap<Long, List<PortEntry>>();
-            for (var e : entries) grouped.computeIfAbsent(e.pid(), _ -> new ArrayList<>()).add(e);
+            for (var e : allEntries) grouped.computeIfAbsent(e.pid(), _ -> new ArrayList<>()).add(e);
             for (var g : grouped.values()) {
                 var first = g.getFirst();
-                boolean recent = first.process().uptimeSeconds() < 60;
+                boolean dead = ghostPids.contains(first.pid());
+                boolean recent = !dead && first.process().uptimeSeconds() < 60;
                 String ports = g.stream().map(e -> ":" + e.port()).collect(java.util.stream.Collectors.joining("\n"));
                 var row = Row.from(
-                        Cell.from(Text.from(ports)).style(CYAN), Cell.from(nameOf(first.process())),
-                        Cell.from(String.valueOf(first.pid())), Cell.from(tildeHome(first.process().command())).style(DIM),
+                        Cell.from(Text.from(ports)).style(dead ? DEAD_ROW : CYAN), Cell.from(nameOf(first.process())),
+                        Cell.from(String.valueOf(first.pid())), Cell.from(tildeHome(first.process().command())).style(dead ? DEAD_ROW : DIM),
                         Cell.from(projectOf(first.process())), Cell.from(frameworkOf(first.process())),
-                        Cell.from(first.process().uptime()), statusCell(first.process().status()));
-                rows.add(recent ? row.style(NEW_ROW) : row);
+                        Cell.from(dead ? "✕" : first.process().uptime()), Cell.from(dead ? "✕" : first.process().status().rawSymbol()));
+                rows.add(dead ? row.style(DEAD_ROW) : recent ? row.style(NEW_ROW) : row);
                 totalLines += g.size();
             }
         } else {
-            for (var e : entries) {
-                boolean recent = e.process().uptimeSeconds() < 60;
+            for (var e : allEntries) {
+                boolean dead = ghostPids.contains(e.pid());
+                boolean recent = !dead && e.process().uptimeSeconds() < 60;
                 var row = Row.from(
-                        Cell.from(":" + e.port()).style(CYAN), Cell.from(nameOf(e.process())),
-                        Cell.from(String.valueOf(e.pid())), Cell.from(tildeHome(e.process().command())).style(DIM),
+                        Cell.from(":" + e.port()).style(dead ? DEAD_ROW : CYAN), Cell.from(nameOf(e.process())),
+                        Cell.from(String.valueOf(e.pid())), Cell.from(tildeHome(e.process().command())).style(dead ? DEAD_ROW : DIM),
                         Cell.from(projectOf(e.process())), Cell.from(frameworkOf(e.process())),
-                        Cell.from(e.process().uptime()), statusCell(e.process().status()));
-                rows.add(recent ? row.style(NEW_ROW) : row);
+                        Cell.from(dead ? "✕" : e.process().uptime()), Cell.from(dead ? "✕" : e.process().status().rawSymbol()));
+                rows.add(dead ? row.style(DEAD_ROW) : recent ? row.style(NEW_ROW) : row);
                 totalLines++;
             }
         }
-
-        // Add ghost rows (recently dead processes) with red/dim style
-        for (var e : ghosts) {
-            rows.add(Row.from(
-                    Cell.from(":" + e.port()), Cell.from(nameOf(e.process())),
-                    Cell.from(String.valueOf(e.pid())), Cell.from(tildeHome(e.process().command())),
-                    Cell.from(projectOf(e.process())), Cell.from(frameworkOf(e.process())),
-                    Cell.from("✕"), Cell.from("✕")
-            ).style(DEAD_ROW));
-            totalLines++;
-        }
-
-        // Use all entries (live + ghosts) for column width calculation
-        var allEntries = new ArrayList<>(entries);
-        allEntries.addAll(ghosts);
 
         var table = Table.builder()
                 .header(header).rows(rows)
