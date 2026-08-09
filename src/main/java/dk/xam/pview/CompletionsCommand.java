@@ -12,7 +12,7 @@ import org.aesh.util.completer.ShellCompletionGenerator.ShellType;
 @CommandDefinition(name = "completion", description = "Generate shell completion script")
 public class CompletionsCommand implements Command<CommandInvocation> {
 
-    @Argument(description = "Target shell: bash, zsh, fish, or pwsh", defaultValue = {"bash"})
+    @Argument(description = "Target shell: bash, zsh, fish, or pwsh")
     ShellType shell;
 
     @Override
@@ -21,6 +21,7 @@ public class CompletionsCommand implements Command<CommandInvocation> {
             var builder = new AeshCommandContainerBuilder<>();
             var container = builder.create(PortsCli.class);
 
+            if (shell == null) shell = detectShell();
             var generator = ShellCompletionGenerator.forShell(shell);
             String script = generator.generate(container.getParser(), "ports");
 
@@ -65,5 +66,16 @@ public class CompletionsCommand implements Command<CommandInvocation> {
             inv.println(Ansi.markup("[red]Error: %s[/]".formatted(e.getMessage())));
             return CommandResult.FAILURE;
         }
+    }
+
+    private static ShellType detectShell() {
+        String shell = System.getenv("SHELL");
+        if (shell != null) {
+            if (shell.endsWith("zsh")) return ShellType.ZSH;
+            if (shell.endsWith("fish")) return ShellType.FISH;
+        }
+        // Windows: check PSModulePath (PowerShell sets it)
+        if (System.getenv("PSModulePath") != null) return ShellType.PWSH;
+        return ShellType.BASH;
     }
 }
