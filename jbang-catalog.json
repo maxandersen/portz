@@ -1,13 +1,13 @@
 {
   "aliases": {
-    "pview": {
-      "script-ref": "https://github.com/maxandersen/pview/releases/download/earlyaccess/pview.jar",
+    "portz": {
+      "script-ref": "https://github.com/maxandersen/portz/releases/download/earlyaccess/portz.jar",
       "description": "A beautiful CLI tool to inspect and manage processes listening on your machine's ports",
       "java": "25",
       "runtime-options": ["--enable-native-access=ALL-UNNAMED"]
     },
     "ports": {
-      "script-ref": "https://github.com/maxandersen/pview/releases/download/earlyaccess/pview.jar",
+      "script-ref": "https://github.com/maxandersen/portz/releases/download/earlyaccess/portz.jar",
       "description": "A beautiful CLI tool to inspect and manage processes listening on your machine's ports",
       "java": "25",
       "runtime-options": ["--enable-native-access=ALL-UNNAMED"]

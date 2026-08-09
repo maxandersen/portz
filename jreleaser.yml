@@ -1,5 +1,5 @@
 project:
-  name: pview
+  name: portz
   description: A beautiful CLI tool to inspect and manage processes listening on your machine's ports
   license: MIT
   java:
@@ -24,4 +24,4 @@ distributions:
   pview:
     type: SINGLE_JAR
     artifacts:
-      - path: out/pview.jar
+      - path: out/portz.jar

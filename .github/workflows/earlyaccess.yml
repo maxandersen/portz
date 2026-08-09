@@ -25,7 +25,7 @@ jobs:
       - name: Stage artifact
         run: |
           mkdir -p out
-          cp target/pview-1.0.0-SNAPSHOT-runner.jar out/pview.jar
+          cp target/portz-1.0.0-SNAPSHOT-runner.jar out/portz.jar
 
       - name: JReleaser - Release
         uses: jreleaser/release-action@v2
