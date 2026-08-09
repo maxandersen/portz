@@ -1,58 +1,95 @@
 # portz
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+A beautiful CLI tool to inspect and manage processes listening on your machine's ports.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+Java port of [port-viewer](https://github.com/iamEtornam/port-viewer) (Rust) — built with [Quarkus](https://quarkus.io), [aesh](https://github.com/aeshell/aesh), and [tamboui](https://tamboui.dev).
 
-## Running the application in dev mode
+## Quick Start
 
-You can run your application in dev mode that enables live coding using:
+```sh
+# Run instantly via jbang (requires Java 25)
+jbang portz@maxandersen
 
-```shell script
-./mvnw quarkus:dev
+# Or with the alias
+jbang ports@maxandersen
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+## Features
 
-## Packaging and running the application
+- **`portz`** — list listening ports with process info, framework detection, git branch
+- **`portz -p <port>`** — detailed process card with kill prompt
+- **`portz ps`** — process-centric view with CPU%, memory, deduped by PID
+- **`portz watch`** — live monitoring with in-place redraw, ghost rows for killed processes
+- **`portz clean`** — find and interactively kill orphaned/zombie dev processes
+- **`portz completion`** — generate shell completions (bash, zsh, fish, pwsh)
 
-The application can be packaged using:
+### Extras
 
-```shell script
-./mvnw package
+- **Port grouping** — multiple ports per process collapsed into one row (`--no-group` to expand)
+- **Framework detection** — Node.js (Next.js, Vite, Express…), Python (Django, Flask…), Ruby (Rails), Go, Rust, plus Java frameworks (Spring Boot, Quarkus, Micronaut) via `pom.xml`/`build.gradle`
+- **Docker service mapping** — PostgreSQL, Redis, MongoDB, Kafka, LocalStack…
+- **Smart rendering** — terminal-width-aware tables, ANSI-aware column widths, path collapsing, `~` home shortening
+- **`NO_COLOR`** support — respects [no-color.org](https://no-color.org/) convention
+- **Cross-platform** — macOS, Linux, Windows (CWD via oshi FFM)
+
+## Usage
+
+```sh
+portz                     # list dev ports (filtered)
+portz --all               # list all ports including system services
+portz -p 8080             # detail view for port 8080
+portz ps                  # process view with CPU/memory
+portz ps --all            # all processes
+portz watch               # live monitoring (Ctrl+C to exit)
+portz clean               # find and kill orphaned processes
+portz completion zsh      # generate zsh completions
+portz --no-group          # one row per port (no grouping)
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+## Install
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
+### jbang (recommended)
 
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
+```sh
+jbang portz@maxandersen
 ```
 
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+Requires Java 25. jbang will download it automatically if needed.
 
-## Creating a native executable
+### Build from source
 
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
+```sh
+git clone https://github.com/maxandersen/portz.git
+cd portz
+./mvnw package -DskipTests
+java --enable-native-access=ALL-UNNAMED -jar target/quarkus-app/quarkus-run.jar
 ```
 
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+### Shell completions
 
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
+```sh
+# Auto-detects your shell
+portz completion | source
+
+# Or specify explicitly
+portz completion bash > ~/.local/share/bash-completion/completions/portz
+portz completion zsh > ~/.zsh/completions/_portz && compinit
+portz completion fish > ~/.config/fish/completions/portz.fish
 ```
 
-You can then execute your native executable with: `./target/portz-1.0.0-SNAPSHOT-runner`
+## Tech Stack
 
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
+| Component | Role |
+|---|---|
+| [Quarkus](https://quarkus.io) + [aesh](https://github.com/aeshell/aesh) | CLI framework, command parsing, shell I/O |
+| [tamboui](https://tamboui.dev) | ANSI-aware table rendering, InlineDisplay, BBCode markup |
+| [oshi](https://github.com/oshi/oshi) (FFM) | Windows process CWD via Foreign Function & Memory API |
+| Virtual threads | Concurrent process data collection |
 
-## Related Guides
+## Credits
 
-- Picocli ([guide](https://quarkus.io/guides/picocli)): Develop command line applications with Picocli
+Inspired by and ported from [port-viewer](https://github.com/iamEtornam/port-viewer) by [Etornam](https://github.com/iamEtornam) — a blazing-fast Rust CLI for port inspection. This Java port adds Java framework detection, tamboui-based rendering, port grouping, watch mode ghost rows, and cross-platform support via standard Java APIs.
+
+## License
+
+MIT
