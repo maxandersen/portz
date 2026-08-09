@@ -81,9 +81,9 @@ public class FrameworkDetector {
     private static Framework detectFromProcessName(String cmdline) {
         if (cmdline == null) return null;
         String lower = cmdline.toLowerCase();
-        if (lower.startsWith("node")) return Framework.unknown("Node.js");
-        if (lower.startsWith("python")) return Framework.unknown("Python");
-        if (lower.startsWith("ruby")) return Framework.unknown("Ruby");
+        if (lower.startsWith("node")) return Framework.NODEJS;
+        if (lower.startsWith("python")) return Framework.PYTHON;
+        if (lower.startsWith("ruby")) return Framework.RUBY;
         if (lower.startsWith("go")) return Framework.GO;
         if (lower.startsWith("cargo")) return Framework.CARGO;
         return null;

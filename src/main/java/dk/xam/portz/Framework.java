@@ -16,6 +16,9 @@ public record Framework(String displayName, String emoji) {
     public static final Framework FLASK = new Framework("Flask", "🌶️");
     public static final Framework RAILS = new Framework("Rails", "🛤️");
     public static final Framework PUMA = new Framework("Puma", "🐆");
+    public static final Framework NODEJS = new Framework("Node.js", "🟢");
+    public static final Framework PYTHON = new Framework("Python", "🐍");
+    public static final Framework RUBY = new Framework("Ruby", "💎");
     public static final Framework GO = new Framework("Go", "🐹");
     public static final Framework CARGO = new Framework("Rust/Cargo", "🦀");
     public static final Framework SPRING_BOOT = new Framework("Spring Boot", "🍃");
