@@ -1,6 +1,7 @@
 package dk.xam.pview;
 
 import dev.tamboui.buffer.Buffer;
+import dev.tamboui.inline.InlineDisplay;
 import dev.tamboui.layout.Constraint;
 import dev.tamboui.layout.Layout;
 import dev.tamboui.layout.Rect;
@@ -76,16 +77,29 @@ public class DetailView {
         int infoHeight = infoRows.size() + 2;
         int cmdHeight = cmdRows.size() + 3;
         int totalHeight = infoHeight + cmdHeight;
-        int width = Renderer.detectTerminalWidth();
-
-        var area = Rect.of(width, totalHeight);
-        var buffer = Buffer.empty(area);
-        var areas = Layout.vertical()
-                .constraints(Constraint.length(infoHeight), Constraint.length(cmdHeight))
-                .split(area);
-        infoTable.render(areas.get(0), buffer, new TableState());
-        cmdTable.render(areas.get(1), buffer, new TableState());
-        inv.println(buffer.toAnsiString());
+        try {
+            var backend = Renderer.createBackend();
+            try (var display = InlineDisplay.withBackend(totalHeight, backend)) {
+                display.render((area, buffer) -> {
+                    var areas = Layout.vertical()
+                            .constraints(Constraint.length(infoHeight), Constraint.length(cmdHeight))
+                            .split(area);
+                    infoTable.render(areas.get(0), buffer, new TableState());
+                    cmdTable.render(areas.get(1), buffer, new TableState());
+                });
+            }
+        } catch (Exception _) {
+            // Fallback
+            int width = Renderer.detectTerminalWidth();
+            var area = Rect.of(width, totalHeight);
+            var buffer = Buffer.empty(area);
+            var areas = Layout.vertical()
+                    .constraints(Constraint.length(infoHeight), Constraint.length(cmdHeight))
+                    .split(area);
+            infoTable.render(areas.get(0), buffer, new TableState());
+            cmdTable.render(areas.get(1), buffer, new TableState());
+            inv.println(buffer.toAnsiString());
+        }
 
         inv.println("");
         String prompt = Ansi.markup("[yellow]Kill this process?[/] [dim](PID %d)[/] [[y/N]]: ".formatted(proc.pid()));

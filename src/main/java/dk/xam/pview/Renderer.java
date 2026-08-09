@@ -1,6 +1,7 @@
 package dk.xam.pview;
 
 import dev.tamboui.backend.aesh.AeshBackend;
+import dev.tamboui.inline.InlineDisplay;
 import dev.tamboui.layout.Constraint;
 import dev.tamboui.style.Color;
 import dev.tamboui.style.Style;
@@ -132,8 +133,14 @@ public class Renderer {
      */
     static void renderInline(Table table, int rowCount, CommandInvocation inv) {
         int tableHeight = rowCount + 3; // top border + header + rows + bottom border
-        int width = detectTerminalWidth();
-        renderToBuffer(table, tableHeight, width, inv);
+        try {
+            var backend = createBackend();
+            try (var display = InlineDisplay.withBackend(tableHeight, backend)) {
+                display.render((area, buffer) -> table.render(area, buffer, new TableState()));
+            }
+        } catch (Exception _) {
+            renderToBuffer(table, tableHeight, detectTerminalWidth(), inv);
+        }
     }
 
     /** Fallback when no aesh Connection is available (e.g. tests). */
@@ -193,19 +200,28 @@ public class Renderer {
      * to read the real size. The close() logs a warning about session conflicts
      * with quarkus-aesh's terminal — suppressed via log level.
      */
+    private static final java.util.logging.Logger AESH_LOGGER =
+            java.util.logging.Logger.getLogger("org.aesh.terminal.tty.TerminalConnection");
+
+    /**
+     * Create an AeshBackend for terminal rendering.
+     * WORKAROUND: quarkusio/quarkus#55935 — Shell.connection() returns null.
+     * We create our own backend; suppress close warnings since quarkus-aesh
+     * also holds the terminal.
+     */
+    static AeshBackend createBackend() throws Exception {
+        AESH_LOGGER.setLevel(java.util.logging.Level.SEVERE);
+        return new AeshBackend();
+    }
+
     static int detectTerminalWidth() {
-        var logger = java.util.logging.Logger.getLogger("org.aesh.terminal.tty.TerminalConnection");
-        var savedLevel = logger.getLevel();
         try {
-            logger.setLevel(java.util.logging.Level.SEVERE);
-            var backend = new AeshBackend();
+            var backend = createBackend();
             int width = backend.size().width();
             backend.close();
             return width > 0 ? width : 120;
         } catch (Exception _) {
             return 120;
-        } finally {
-            logger.setLevel(savedLevel);
         }
     }
 
