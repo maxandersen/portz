@@ -30,7 +30,11 @@ public class Renderer {
 
     public static void renderPortsTable(List<PortEntry> entries, boolean showAll, CommandInvocation inv) {
         if (entries.isEmpty()) {
-            inv.println(Ansi.markup("[yellow]No listening ports found.[/]"));
+            if (showAll) {
+                inv.println(Ansi.markup("[yellow]No listening ports found.[/]"));
+            } else {
+                inv.println(Ansi.markup("[yellow]No dev ports found.[/] Try [dim]--all[/] to include system services."));
+            }
             return;
         }
 
