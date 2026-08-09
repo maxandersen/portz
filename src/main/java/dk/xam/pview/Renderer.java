@@ -1,7 +1,6 @@
 package dk.xam.pview;
 
 import dev.tamboui.backend.aesh.AeshBackend;
-import dev.tamboui.inline.InlineDisplay;
 import dev.tamboui.layout.Constraint;
 import dev.tamboui.style.Color;
 import dev.tamboui.style.Style;
@@ -191,16 +190,22 @@ public class Renderer {
      * Detect real terminal width.
      * WORKAROUND: quarkusio/quarkus#55935 — Shell.connection() returns null
      * and terminal size is hardcoded to 120x40. Create a temporary AeshBackend
-     * just to read size, close immediately to avoid SIGINT handler conflicts.
+     * to read the real size. The close() logs a warning about session conflicts
+     * with quarkus-aesh's terminal — suppressed via log level.
      */
     static int detectTerminalWidth() {
+        var logger = java.util.logging.Logger.getLogger("org.aesh.terminal.tty.TerminalConnection");
+        var savedLevel = logger.getLevel();
         try {
+            logger.setLevel(java.util.logging.Level.SEVERE);
             var backend = new AeshBackend();
             int width = backend.size().width();
             backend.close();
             return width > 0 ? width : 120;
         } catch (Exception _) {
             return 120;
+        } finally {
+            logger.setLevel(savedLevel);
         }
     }
 
