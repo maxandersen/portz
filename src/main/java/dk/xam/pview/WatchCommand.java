@@ -27,7 +27,7 @@ public class WatchCommand implements Command<CommandInvocation> {
 
     @Override
     public CommandResult execute(CommandInvocation inv) {
-        inv.println(Ansi.markup("[cyan]Starting port monitor (Ctrl+C to exit)...[/]"));
+        inv.println(Ansi.markup("[cyan]Starting port monitor (q or Ctrl+C to exit)...[/]"));
 
         var previousByPid = new HashMap<Long, PortEntry>();
         var ghosts = new LinkedHashMap<Long, Ghost>(); // pid -> ghost
@@ -83,7 +83,10 @@ public class WatchCommand implements Command<CommandInvocation> {
                             built.table().render(area, buffer, new TableState()), built.height(), -1, -1);
 
                     previousByPid = currentByPid;
-                    Thread.sleep(1000);
+
+                    // Wait ~1s, but poll for 'q' keypress to quit
+                    int ch = backend.read(1000);
+                    if (ch == 'q' || ch == 'Q') return CommandResult.SUCCESS;
                 }
             }
         } catch (InterruptedException _) {
