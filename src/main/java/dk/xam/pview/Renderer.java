@@ -1,18 +1,19 @@
 package dk.xam.pview;
 
-import dev.tamboui.buffer.Buffer;
+import dev.tamboui.backend.aesh.AeshBackend;
+import dev.tamboui.inline.InlineDisplay;
 import dev.tamboui.layout.Constraint;
-import dev.tamboui.layout.Rect;
 import dev.tamboui.style.Color;
 import dev.tamboui.style.Style;
 import dev.tamboui.widgets.block.Block;
 import dev.tamboui.widgets.block.BorderType;
+import dev.tamboui.widgets.block.Borders;
 import dev.tamboui.widgets.table.Cell;
 import dev.tamboui.widgets.table.Row;
 import dev.tamboui.widgets.table.Table;
 import dev.tamboui.widgets.table.TableState;
 import org.aesh.command.invocation.CommandInvocation;
-import org.aesh.terminal.tty.Size;
+import org.aesh.terminal.Connection;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,8 +33,6 @@ public class Renderer {
             inv.println(Ansi.markup("[yellow]No listening ports found.[/]"));
             return;
         }
-
-        int width = getTerminalWidth(inv);
 
         var header = Row.from(
                 Cell.from("PORT").style(HEADER),
@@ -60,8 +59,6 @@ public class Renderer {
             ));
         }
 
-        // ponytail: Constraint.max(contentWidth) lets columns shrink on narrow terminals
-        // but won't grow beyond content width on wide ones. fill(1) on COMMAND absorbs slack.
         var table = Table.builder()
                 .header(header)
                 .rows(rows)
@@ -76,10 +73,10 @@ public class Renderer {
                         Constraint.max(6)        // STATUS
                 )
                 .columnSpacing(1)
-                .block(Block.builder().borders(dev.tamboui.widgets.block.Borders.ALL).borderType(BorderType.ROUNDED).build())
+                .block(Block.builder().borders(Borders.ALL).borderType(BorderType.ROUNDED).build())
                 .build();
 
-        renderTable(table, rows, width, inv);
+        renderInline(table, rows.size(), inv);
 
         // Footer
         String filter = showAll ? "" : " · [dim]--all to show everything[/]";
@@ -89,8 +86,6 @@ public class Renderer {
     }
 
     public static void renderOrphanTable(List<PortEntry> orphans, CommandInvocation inv) {
-        int width = getTerminalWidth(inv);
-
         var header = Row.from(
                 Cell.from("PID").style(HEADER),
                 Cell.from("NAME").style(HEADER),
@@ -121,26 +116,48 @@ public class Renderer {
                         Constraint.max(6)        // STATUS
                 )
                 .columnSpacing(1)
-                .block(Block.builder().borders(dev.tamboui.widgets.block.Borders.ALL).borderType(BorderType.ROUNDED).build())
+                .block(Block.builder().borders(Borders.ALL).borderType(BorderType.ROUNDED).build())
                 .build();
 
-        renderTable(table, rows, width, inv);
+        renderInline(table, rows.size(), inv);
     }
 
-    static void renderTable(Table table, List<Row> rows, int width, CommandInvocation inv) {
-        int rowCount = rows.size();
+    /**
+     * Render a Table widget via tamboui InlineDisplay.
+     * InlineDisplay gets terminal width from the aesh backend automatically —
+     * no manual width detection needed.
+     */
+    static void renderInline(Table table, int rowCount, CommandInvocation inv) {
         int tableHeight = rowCount + 3; // top border + header + rows + bottom border
-        var area = Rect.of(width, tableHeight);
-        var buffer = Buffer.empty(area);
+        Connection conn = inv.getShell().connection();
+        if (conn != null) {
+            try {
+                var backend = new AeshBackend(conn);
+                try (var display = InlineDisplay.withBackend(tableHeight, backend)) {
+                    display.render((area, buffer) -> table.render(area, buffer, new TableState()));
+                }
+            } catch (Exception e) {
+                // Fallback: render to buffer manually
+                renderToBuffer(table, tableHeight, 120, inv);
+            }
+        } else {
+            renderToBuffer(table, tableHeight, 120, inv);
+        }
+    }
+
+    /** Fallback when no aesh Connection is available (e.g. tests). */
+    private static void renderToBuffer(Table table, int height, int width, CommandInvocation inv) {
+        var area = dev.tamboui.layout.Rect.of(width, height);
+        var buffer = dev.tamboui.buffer.Buffer.empty(area);
         table.render(area, buffer, new TableState());
         inv.println(buffer.toAnsiString());
     }
 
     /**
      * Compute column width from data content.
-     * ponytail: Constraint.fit() only works in Toolkit DSL (needs preferredWidth()),
-     * not with raw Table widget (tamboui#413). So we compute widths from actual cell values
-     * and use Constraint.max() so columns can shrink on narrow terminals.
+     * ponytail: Constraint.fit() only works in Toolkit DSL (tamboui#413).
+     * We compute widths from cell values and use Constraint.max() so columns
+     * can shrink on narrow terminals.
      */
     static int maxCol(List<PortEntry> entries, java.util.function.Function<PortEntry, String> fn, int headerLen) {
         int max = headerLen;
@@ -177,31 +194,11 @@ public class Renderer {
         return HOME != null && s.startsWith(HOME) ? "~" + s.substring(HOME.length()) : s;
     }
 
-    /** Turn /Applications/Google Chrome.app/Contents/MacOS/Google Chrome -> Google Chrome */
     private static String shortenProcessName(String name) {
         if (name.contains("/")) {
             int slash = name.lastIndexOf('/');
             return slash >= 0 ? name.substring(slash + 1) : name;
         }
         return name;
-    }
-
-    static int getTerminalWidth(CommandInvocation inv) {
-        // Trust aesh first — it owns the terminal connection
-        try {
-            Size size = inv.getShell().size();
-            if (size != null && size.getWidth() >= 40) return size.getWidth();
-        } catch (Exception ignored) {}
-        // Fallback: COLUMNS env var
-        try {
-            String cols = System.getenv("COLUMNS");
-            if (cols != null) {
-                int w = Integer.parseInt(cols);
-                if (w >= 40) return w;
-            }
-        } catch (Exception ignored) {}
-        // ponytail: no shelling out to stty — aesh should handle this.
-        // If neither aesh nor COLUMNS works, we're not in a real terminal.
-        return 120;
     }
 }

@@ -102,7 +102,7 @@ public class PsCommand implements Command<CommandInvocation> {
                 ));
             }
 
-            int width = Renderer.getTerminalWidth(inv);
+
             var table = Table.builder()
                     .header(header)
                     .rows(rows)
@@ -120,7 +120,7 @@ public class PsCommand implements Command<CommandInvocation> {
                     .block(Block.builder().borders(Borders.ALL).borderType(BorderType.ROUNDED).build())
                     .build();
 
-            Renderer.renderTable(table, rows, width, inv);
+            Renderer.renderInline(table, rows.size(), inv);
 
             inv.println(Ansi.markup("[cyan]%d[/] %s running".formatted(
                     unique.size(), unique.size() == 1 ? "process" : "processes")));
