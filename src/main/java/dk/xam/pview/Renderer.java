@@ -11,7 +11,7 @@ public class Renderer {
             return;
         }
 
-        String[] headers = {"PORT", "PROCESS", "PID", "PROJECT", "FRAMEWORK", "UPTIME", "STATUS"};
+        String[] headers = {"PORT", "NAME", "PID", "COMMAND", "PROJECT", "FRAMEWORK", "UPTIME", "STATUS"};
         var rows = new ArrayList<String[]>();
         for (var e : entries) {
             String fw = e.process().framework() != null
@@ -21,6 +21,7 @@ public class Renderer {
                     Ansi.cyan(":" + e.port()),
                     shortenProcessName(e.process().name()),
                     String.valueOf(e.pid()),
+                    e.process().command(),
                     e.process().projectName() != null ? e.process().projectName() : "-",
                     fw,
                     e.process().uptime(),
@@ -109,6 +110,11 @@ public class Renderer {
     }
 
     private static String truncateAnsi(String s, int maxVisible) {
+        // For path-like strings, try collapsing path segments first
+        String plain = stripAnsi(s);
+        if (plain.length() > maxVisible && plain.contains("/")) {
+            return collapsePath(plain, maxVisible);
+        }
         if (maxVisible <= 1) return "…";
         var sb = new StringBuilder();
         int visible = 0;
@@ -122,6 +128,43 @@ public class Renderer {
             visible++;
         }
         return sb.toString();
+    }
+
+    /**
+     * Collapse path segments to fit within maxLen.
+     * /Users/max/.sdkman/candidates/java/current/bin/java -jar foo.jar
+     * -> /U/m/.s/c/java/current/bin/java -jar foo.jar
+     * Collapses from left, keeps rightmost segments + args intact.
+     */
+    private static String collapsePath(String s, int maxLen) {
+        // Split into command (first token) and args
+        int spaceIdx = s.indexOf(' ');
+        String path = spaceIdx > 0 ? s.substring(0, spaceIdx) : s;
+        String args = spaceIdx > 0 ? s.substring(spaceIdx) : "";
+
+        if (path.length() + args.length() <= maxLen) return s;
+
+        String[] segments = path.split("/");
+        // Collapse segments from left (index 1 onward, skip empty root)
+        // until it fits or we run out of segments to collapse
+        for (int i = 1; i < segments.length - 1; i++) {
+            if (segments[i].length() > 1) {
+                segments[i] = segments[i].substring(0, 1);
+            }
+            String collapsed = String.join("/", segments) + args;
+            if (collapsed.length() <= maxLen) return collapsed;
+        }
+
+        // Still too long — truncate args
+        String collapsed = String.join("/", segments);
+        if (collapsed.length() >= maxLen - 1) {
+            return collapsed.substring(0, maxLen - 1) + "…";
+        }
+        int argsRoom = maxLen - collapsed.length() - 1;
+        if (argsRoom > 0 && !args.isEmpty()) {
+            return collapsed + args.substring(0, Math.min(args.length(), argsRoom)) + "…";
+        }
+        return collapsed;
     }
 
     private static String border(char left, char mid, char right, int[] widths) {
