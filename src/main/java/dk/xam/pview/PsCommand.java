@@ -107,24 +107,20 @@ public class PsCommand implements Command<CommandInvocation> {
                     .header(header)
                     .rows(rows)
                     .widths(
-                            Constraint.length(7),    // PID
-                            Constraint.min(6),       // NAME
-                            Constraint.length(5),    // CPU%
-                            Constraint.length(6),    // MEM
-                            Constraint.min(7),       // PROJECT
-                            Constraint.min(9),       // FRAMEWORK
-                            Constraint.length(8),    // UPTIME
+                            Constraint.max(Renderer.maxCol(nonDocker, e -> String.valueOf(e.pid()), 3)),
+                            Constraint.max(Renderer.maxCol(nonDocker, e -> Renderer.nameOf(e.process()), 4)),
+                            Constraint.max(5),       // CPU%
+                            Constraint.max(6),       // MEM
+                            Constraint.max(Renderer.maxCol(nonDocker, e -> Renderer.projectOf(e.process()), 7)),
+                            Constraint.max(Renderer.maxCol(nonDocker, e -> Renderer.frameworkOf(e.process()), 9)),
+                            Constraint.max(Renderer.maxCol(nonDocker, e -> e.process().uptime(), 6)),
                             Constraint.fill(1)       // COMMAND
                     )
                     .columnSpacing(1)
                     .block(Block.builder().borders(Borders.ALL).borderType(BorderType.ROUNDED).build())
                     .build();
 
-            int tableHeight = rows.size() + 3;
-            var area = Rect.of(width, tableHeight);
-            var buffer = Buffer.empty(area);
-            table.render(area, buffer, new TableState());
-            inv.println(buffer.toAnsiString());
+            Renderer.renderTable(table, rows, width, inv);
 
             inv.println(Ansi.markup("[cyan]%d[/] %s running".formatted(
                     unique.size(), unique.size() == 1 ? "process" : "processes")));

@@ -60,28 +60,26 @@ public class Renderer {
             ));
         }
 
+        // ponytail: Constraint.max(contentWidth) lets columns shrink on narrow terminals
+        // but won't grow beyond content width on wide ones. fill(1) on COMMAND absorbs slack.
         var table = Table.builder()
                 .header(header)
                 .rows(rows)
                 .widths(
-                        Constraint.length(maxCol(entries, e -> ":" + e.port(), 4)),
-                        Constraint.length(maxCol(entries, e -> nameOf(e.process()), 4)),
-                        Constraint.length(maxCol(entries, e -> String.valueOf(e.pid()), 3)),
+                        Constraint.max(maxCol(entries, e -> ":" + e.port(), 4)),
+                        Constraint.max(maxCol(entries, e -> nameOf(e.process()), 4)),
+                        Constraint.max(maxCol(entries, e -> String.valueOf(e.pid()), 3)),
                         Constraint.fill(1),      // COMMAND — takes remaining space
-                        Constraint.length(maxCol(entries, e -> projectOf(e.process()), 7)),
-                        Constraint.length(maxCol(entries, e -> frameworkOf(e.process()), 9)),
-                        Constraint.length(maxCol(entries, e -> e.process().uptime(), 6)),
-                        Constraint.length(6)     // STATUS
+                        Constraint.max(maxCol(entries, e -> projectOf(e.process()), 7)),
+                        Constraint.max(maxCol(entries, e -> frameworkOf(e.process()), 9)),
+                        Constraint.max(maxCol(entries, e -> e.process().uptime(), 6)),
+                        Constraint.max(6)        // STATUS
                 )
                 .columnSpacing(1)
                 .block(Block.builder().borders(dev.tamboui.widgets.block.Borders.ALL).borderType(BorderType.ROUNDED).build())
                 .build();
 
-        int tableHeight = rows.size() + 3; // top border + header + rows + bottom border
-        var area = Rect.of(width, tableHeight);
-        var buffer = Buffer.empty(area);
-        table.render(area, buffer, new TableState());
-        inv.println(buffer.toAnsiString());
+        renderTable(table, rows, width, inv);
 
         // Footer
         String filter = showAll ? "" : " · [dim]--all to show everything[/]";
@@ -116,17 +114,22 @@ public class Renderer {
                 .header(header)
                 .rows(rows)
                 .widths(
-                        Constraint.length(maxCol(orphans, e -> String.valueOf(e.pid()), 3)),
-                        Constraint.length(maxCol(orphans, e -> nameOf(e.process()), 4)),
-                        Constraint.fill(1),      // PROJECT
-                        Constraint.length(maxCol(orphans, e -> e.process().uptime(), 6)),
-                        Constraint.length(6)     // STATUS
+                        Constraint.max(maxCol(orphans, e -> String.valueOf(e.pid()), 3)),
+                        Constraint.max(maxCol(orphans, e -> nameOf(e.process()), 4)),
+                        Constraint.fill(1),      // PROJECT — flex column
+                        Constraint.max(maxCol(orphans, e -> e.process().uptime(), 6)),
+                        Constraint.max(6)        // STATUS
                 )
                 .columnSpacing(1)
                 .block(Block.builder().borders(dev.tamboui.widgets.block.Borders.ALL).borderType(BorderType.ROUNDED).build())
                 .build();
 
-        int tableHeight = rows.size() + 3;
+        renderTable(table, rows, width, inv);
+    }
+
+    static void renderTable(Table table, List<Row> rows, int width, CommandInvocation inv) {
+        int rowCount = rows.size();
+        int tableHeight = rowCount + 3; // top border + header + rows + bottom border
         var area = Rect.of(width, tableHeight);
         var buffer = Buffer.empty(area);
         table.render(area, buffer, new TableState());
@@ -136,7 +139,8 @@ public class Renderer {
     /**
      * Compute column width from data content.
      * ponytail: Constraint.fit() only works in Toolkit DSL (needs preferredWidth()),
-     * not with raw Table widget. So we compute widths from actual cell values.
+     * not with raw Table widget (tamboui#413). So we compute widths from actual cell values
+     * and use Constraint.max() so columns can shrink on narrow terminals.
      */
     static int maxCol(List<PortEntry> entries, java.util.function.Function<PortEntry, String> fn, int headerLen) {
         int max = headerLen;
@@ -175,8 +179,6 @@ public class Renderer {
 
     /** Turn /Applications/Google Chrome.app/Contents/MacOS/Google Chrome -> Google Chrome */
     private static String shortenProcessName(String name) {
-        // ponytail: name is already extracted by Collector.extractDisplayName,
-        // but guard against raw paths leaking through
         if (name.contains("/")) {
             int slash = name.lastIndexOf('/');
             return slash >= 0 ? name.substring(slash + 1) : name;
@@ -186,32 +188,30 @@ public class Renderer {
 
     static int getTerminalWidth(CommandInvocation inv) {
         int detected = 0;
-        // Try aesh shell first
+        // Try stty via /dev/tty first — most reliable, works even when stdout is piped
         try {
-            Size size = inv.getShell().size();
-            if (size != null && size.getWidth() > 0) detected = size.getWidth();
+            var proc = new ProcessBuilder("stty", "size")
+                    .redirectInput(new java.io.File("/dev/tty")).start();
+            String out = new String(proc.getInputStream().readAllBytes()).trim();
+            proc.waitFor();
+            String[] parts = out.split("\\s+");
+            if (parts.length >= 2) detected = Integer.parseInt(parts[1]);
         } catch (Exception ignored) {}
-        // Try stty via /dev/tty
-        if (detected == 0) {
-            try {
-                var proc = new ProcessBuilder("stty", "size")
-                        .redirectInput(new java.io.File("/dev/tty")).start();
-                String out = new String(proc.getInputStream().readAllBytes()).trim();
-                proc.waitFor();
-                String[] parts = out.split("\\s+");
-                if (parts.length >= 2) detected = Integer.parseInt(parts[1]);
-            } catch (Exception ignored) {}
-        }
         // Try COLUMNS env var
-        if (detected == 0) {
+        if (detected <= 0) {
             try {
                 String cols = System.getenv("COLUMNS");
                 if (cols != null) detected = Integer.parseInt(cols);
             } catch (Exception ignored) {}
         }
-        // ponytail: 80 is the universal "I don't know" default.
-        // Real wide terminals report actual width. Treat <=80 as unknown
-        // and use a generous default so the table isn't squished.
-        return detected > 80 ? detected : 140;
+        // Try aesh shell — can report wrong values in non-tty contexts
+        if (detected <= 0) {
+            try {
+                Size size = inv.getShell().size();
+                if (size != null && size.getWidth() > 0) detected = size.getWidth();
+            } catch (Exception ignored) {}
+        }
+        // Floor: never go below 80, fallback 120 if nothing detected
+        return detected >= 80 ? detected : (detected > 0 ? 80 : 120);
     }
 }
