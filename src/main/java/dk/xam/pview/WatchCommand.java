@@ -72,9 +72,11 @@ public class WatchCommand implements Command<CommandInvocation> {
                     ghosts.entrySet().removeIf(e ->
                             now.getEpochSecond() - e.getValue().diedAt().getEpochSecond() > GHOST_TTL_SECONDS);
 
-                    // Build table with ghost rows
+                    // Build table with ghost rows and death times
                     var ghostEntries = ghosts.values().stream().map(Ghost::entry).toList();
-                    var built = Renderer.buildPortsTable(entries, showAll, true, ghostEntries);
+                    var deathTimes = new HashMap<Long, Instant>();
+                    ghosts.forEach((pid, g) -> deathTimes.put(pid, g.diedAt()));
+                    var built = Renderer.buildPortsTable(entries, showAll, true, ghostEntries, deathTimes);
 
                     // Render in-place
                     display.render((area, buffer) ->

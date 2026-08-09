@@ -18,6 +18,7 @@ import org.aesh.command.invocation.CommandInvocation;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 public class Renderer {
 
@@ -41,7 +42,13 @@ public class Renderer {
     }
 
     /** Build a ports table with optional ghost (recently dead) entries. */
-    static BuiltTable buildPortsTable(List<PortEntry> entries, boolean showAll, boolean group, List<PortEntry> ghosts) {
+    static BuiltTable buildPortsTable(List<PortEntry> entries, boolean showAll, boolean group,
+                                       List<PortEntry> ghosts) {
+        return buildPortsTable(entries, showAll, group, ghosts, Map.of());
+    }
+
+    static BuiltTable buildPortsTable(List<PortEntry> entries, boolean showAll, boolean group,
+                                       List<PortEntry> ghosts, Map<Long, java.time.Instant> deathTimes) {
         // Merge live + ghost entries, sorted by port, for proper interleaving
         var ghostPids = new HashSet<Long>();
         ghosts.forEach(e -> ghostPids.add(e.pid()));
@@ -70,7 +77,7 @@ public class Renderer {
                         Cell.from(Text.from(ports)).style(dead ? DEAD_ROW : CYAN), Cell.from(nameOf(first.process())),
                         Cell.from(String.valueOf(first.pid())), Cell.from(tildeHome(first.process().command())).style(dead ? DEAD_ROW : DIM),
                         Cell.from(projectOf(first.process())), Cell.from(frameworkOf(first.process())),
-                        Cell.from(dead ? "✕" : first.process().uptime()), Cell.from(dead ? "✕" : first.process().status().rawSymbol()));
+                        Cell.from(dead ? deadTime(first.pid(), deathTimes) : first.process().uptime()), Cell.from(dead ? "✕" : first.process().status().rawSymbol()));
                 rows.add(dead ? row.style(DEAD_ROW) : recent ? row.style(NEW_ROW) : row);
                 totalLines += g.size();
             }
@@ -82,7 +89,7 @@ public class Renderer {
                         Cell.from(":" + e.port()).style(dead ? DEAD_ROW : CYAN), Cell.from(nameOf(e.process())),
                         Cell.from(String.valueOf(e.pid())), Cell.from(tildeHome(e.process().command())).style(dead ? DEAD_ROW : DIM),
                         Cell.from(projectOf(e.process())), Cell.from(frameworkOf(e.process())),
-                        Cell.from(dead ? "✕" : e.process().uptime()), Cell.from(dead ? "✕" : e.process().status().rawSymbol()));
+                        Cell.from(dead ? deadTime(e.pid(), deathTimes) : e.process().uptime()), Cell.from(dead ? "✕" : e.process().status().rawSymbol()));
                 rows.add(dead ? row.style(DEAD_ROW) : recent ? row.style(NEW_ROW) : row);
                 totalLines++;
             }
@@ -220,6 +227,13 @@ public class Renderer {
     static Cell statusCell(ProcessStatus st) {
         Style style = switch (st) { case HEALTHY -> GREEN; case ORPHANED -> YELLOW; case ZOMBIE -> RED; };
         return Cell.from(st.rawSymbol()).style(style);
+    }
+
+    private static String deadTime(long pid, Map<Long, java.time.Instant> deathTimes) {
+        var died = deathTimes.get(pid);
+        if (died == null) return "✕";
+        long secs = java.time.Duration.between(died, java.time.Instant.now()).getSeconds();
+        return "-%ds".formatted(secs);
     }
 
     static String tildeHome(String s) {
