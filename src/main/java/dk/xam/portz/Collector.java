@@ -49,14 +49,14 @@ public class Collector {
                         var fn = Path.of(cwd).getFileName();
                         if (fn != null) projectName = fn.toString();
                     }
-                    Framework framework = FrameworkDetector.detect(cwd, cmdline);
+                    var detection = FrameworkDetector.detect(cwd, cmdline);
                     String gitBranch = cwd != null ? Platform.getGitBranch(cwd) : null;
 
                     enriched.put(pid, new ProcessInfo(
                             pid, displayName, cmdline,
                             Platform.formatUptime(uptimeSeconds), uptimeSeconds,
                             data.rss(), data.ppid(), status,
-                            cwd, projectName, framework, gitBranch
+                            cwd, projectName, detection.runtime(), detection.framework(), gitBranch
                     ));
                 }));
             }

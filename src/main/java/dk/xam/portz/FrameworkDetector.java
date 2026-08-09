@@ -2,21 +2,70 @@ package dk.xam.portz;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
-import java.util.Set;
 
+/** Detects runtime and framework from CWD files and command line. */
 public class FrameworkDetector {
 
-    public static Framework detect(String cwd, String cmdline) {
+    record Detection(Runtime runtime, Framework framework) {}
+
+    public static Detection detect(String cwd, String cmdline) {
+        Runtime runtime = detectRuntime(cmdline);
+        Framework framework = null;
+
         if (cwd != null) {
-            Framework fw = detectFromPackageJson(Path.of(cwd));
-            if (fw != null) return fw;
-            fw = detectFromJavaProject(Path.of(cwd));
-            if (fw != null) return fw;
+            framework = detectFromPackageJson(Path.of(cwd));
+            if (framework != null && runtime == null) runtime = Runtime.NODEJS;
+
+            if (framework == null) {
+                framework = detectFromJavaProject(Path.of(cwd));
+                if (runtime == null && (framework != null || Files.exists(Path.of(cwd).resolve("pom.xml"))
+                        || Files.exists(Path.of(cwd).resolve("build.gradle"))
+                        || Files.exists(Path.of(cwd).resolve("build.gradle.kts")))) {
+                    runtime = Runtime.JAVA;
+                }
+            }
+
+            if (runtime == null) {
+                if (Files.exists(Path.of(cwd).resolve("Cargo.toml"))) runtime = Runtime.RUST;
+                else if (Files.exists(Path.of(cwd).resolve("go.mod"))) runtime = Runtime.GO;
+                else if (Files.exists(Path.of(cwd).resolve("requirements.txt"))
+                        || Files.exists(Path.of(cwd).resolve("pyproject.toml"))) runtime = Runtime.PYTHON;
+                else if (Files.exists(Path.of(cwd).resolve("Gemfile"))) runtime = Runtime.RUBY;
+                else if (Files.exists(Path.of(cwd).resolve("mix.exs"))) runtime = Runtime.ELIXIR;
+                else if (Files.exists(Path.of(cwd).resolve("composer.json"))) runtime = Runtime.PHP;
+            }
         }
-        Framework fw = detectFromCmdline(cmdline);
-        if (fw != null) return fw;
-        return detectFromProcessName(cmdline);
+
+        if (framework == null) framework = detectFromCmdline(cmdline);
+
+        return new Detection(runtime, framework);
+    }
+
+    private static Runtime detectRuntime(String cmdline) {
+        if (cmdline == null) return null;
+        String first = cmdline.split("\\s+")[0].toLowerCase();
+        int slash = first.lastIndexOf('/');
+        String bin = slash >= 0 ? first.substring(slash + 1) : first;
+
+        return switch (bin) {
+            case "java", "javac" -> Runtime.JAVA;
+            case "node", "nodejs" -> Runtime.NODEJS;
+            case "python", "python3" -> Runtime.PYTHON;
+            case "ruby" -> Runtime.RUBY;
+            case "go" -> Runtime.GO;
+            case "cargo" -> Runtime.RUST;
+            case "php" -> Runtime.PHP;
+            case "dotnet" -> Runtime.DOTNET;
+            case "elixir", "mix" -> Runtime.ELIXIR;
+            case "deno" -> Runtime.DENO;
+            case "bun" -> Runtime.BUN;
+            default -> {
+                if (bin.startsWith("python")) yield Runtime.PYTHON;
+                if (first.contains("/java/") || first.contains("/jdk/") || first.contains("/jre/")) yield Runtime.JAVA;
+                if (first.contains("/node_modules/")) yield Runtime.NODEJS;
+                yield null;
+            }
+        };
     }
 
     private static Framework detectFromPackageJson(Path dir) {
@@ -24,7 +73,6 @@ public class FrameworkDetector {
         if (!Files.exists(packageJson)) return null;
         try {
             String content = Files.readString(packageJson);
-            // ponytail: simple contains checks instead of full JSON parse — works for dep detection
             if (content.contains("\"next\"")) return Framework.NEXTJS;
             if (content.contains("\"vite\"")) return Framework.VITE;
             if (content.contains("\"@angular/core\"")) return Framework.ANGULAR;
@@ -38,7 +86,6 @@ public class FrameworkDetector {
     }
 
     private static Framework detectFromJavaProject(Path dir) {
-        // Check pom.xml for Spring Boot / Quarkus / Micronaut
         Path pom = dir.resolve("pom.xml");
         if (Files.exists(pom)) {
             try {
@@ -48,7 +95,6 @@ public class FrameworkDetector {
                 if (content.contains("micronaut")) return Framework.MICRONAUT;
             } catch (Exception _) {}
         }
-        // Check build.gradle
         Path gradle = dir.resolve("build.gradle");
         if (!Files.exists(gradle)) gradle = dir.resolve("build.gradle.kts");
         if (Files.exists(gradle)) {
@@ -70,22 +116,9 @@ public class FrameworkDetector {
         if (lower.contains("flask")) return Framework.FLASK;
         if (lower.contains("rails")) return Framework.RAILS;
         if (lower.contains("puma")) return Framework.PUMA;
-        if (lower.contains("cargo run") || lower.contains("cargo watch")) return Framework.CARGO;
-        if (lower.contains("go run")) return Framework.GO;
         if (lower.contains("spring-boot") || lower.contains("spring.boot")) return Framework.SPRING_BOOT;
         if (lower.contains("quarkus")) return Framework.QUARKUS;
         if (lower.contains("micronaut")) return Framework.MICRONAUT;
-        return null;
-    }
-
-    private static Framework detectFromProcessName(String cmdline) {
-        if (cmdline == null) return null;
-        String lower = cmdline.toLowerCase();
-        if (lower.startsWith("node")) return Framework.NODEJS;
-        if (lower.startsWith("python")) return Framework.PYTHON;
-        if (lower.startsWith("ruby")) return Framework.RUBY;
-        if (lower.startsWith("go")) return Framework.GO;
-        if (lower.startsWith("cargo")) return Framework.CARGO;
         return null;
     }
 }

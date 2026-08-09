@@ -68,7 +68,7 @@ public class PsCommand implements Command<CommandInvocation> {
                     Cell.from("CPU%").style(HEADER),
                     Cell.from("MEM").style(HEADER),
                     Cell.from("PROJECT").style(HEADER),
-                    Cell.from("FRAMEWORK").style(HEADER),
+                    Cell.from("STACK").style(HEADER),
                     Cell.from("UPTIME").style(HEADER),
                     Cell.from("COMMAND").style(HEADER)
             );

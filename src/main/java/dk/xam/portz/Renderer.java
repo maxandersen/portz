@@ -59,7 +59,7 @@ public class Renderer {
         var header = Row.from(
                 Cell.from("PORT").style(HEADER), Cell.from("NAME").style(HEADER),
                 Cell.from("PID").style(HEADER), Cell.from("COMMAND").style(HEADER),
-                Cell.from("PROJECT").style(HEADER), Cell.from("FRAMEWORK").style(HEADER),
+                Cell.from("PROJECT").style(HEADER), Cell.from("STACK").style(HEADER),
                 Cell.from("UPTIME").style(HEADER), Cell.from("STATUS").style(HEADER));
 
         var rows = new ArrayList<Row>();
@@ -221,7 +221,7 @@ public class Renderer {
     static String nameOf(ProcessInfo p) { return shortenProcessName(p.name()); }
     static String projectOf(ProcessInfo p) { return p.projectName() != null ? p.projectName() : "-"; }
     static String frameworkOf(ProcessInfo p) {
-        return p.framework() != null ? p.framework().emoji() + " " + p.framework().displayName() : "-";
+        return p.runtimeFrameworkDisplay();
     }
 
     static Cell statusCell(ProcessStatus st) {

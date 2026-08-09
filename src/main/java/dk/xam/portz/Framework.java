@@ -1,8 +1,9 @@
 package dk.xam.portz;
 
+/** Application framework — detected from build files (package.json, pom.xml) or cmdline. */
 public record Framework(String displayName, String emoji) {
 
-    // Well-known frameworks
+    // JavaScript
     public static final Framework NEXTJS = new Framework("Next.js", "⚡");
     public static final Framework VITE = new Framework("Vite", "⚡");
     public static final Framework ANGULAR = new Framework("Angular", "🅰️");
@@ -11,16 +12,17 @@ public record Framework(String displayName, String emoji) {
     public static final Framework EXPRESS = new Framework("Express", "🚂");
     public static final Framework FASTIFY = new Framework("Fastify", "⚡");
     public static final Framework NUXT = new Framework("Nuxt", "💚");
+
+    // Python
     public static final Framework DJANGO = new Framework("Django", "🎸");
     public static final Framework FASTAPI = new Framework("FastAPI", "⚡");
     public static final Framework FLASK = new Framework("Flask", "🌶️");
+
+    // Ruby
     public static final Framework RAILS = new Framework("Rails", "🛤️");
     public static final Framework PUMA = new Framework("Puma", "🐆");
-    public static final Framework NODEJS = new Framework("Node.js", "🟢");
-    public static final Framework PYTHON = new Framework("Python", "🐍");
-    public static final Framework RUBY = new Framework("Ruby", "💎");
-    public static final Framework GO = new Framework("Go", "🐹");
-    public static final Framework CARGO = new Framework("Rust/Cargo", "🦀");
+
+    // Java
     public static final Framework SPRING_BOOT = new Framework("Spring Boot", "🍃");
     public static final Framework QUARKUS = new Framework("Quarkus", "🔮");
     public static final Framework MICRONAUT = new Framework("Micronaut", "🔬");
