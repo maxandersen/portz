@@ -21,7 +21,7 @@ public class Renderer {
                     Ansi.cyan(":" + e.port()),
                     shortenProcessName(e.process().name()),
                     String.valueOf(e.pid()),
-                    e.process().command(),
+                    tildeHome(e.process().command()),
                     e.process().projectName() != null ? e.process().projectName() : "-",
                     fw,
                     e.process().uptime(),
@@ -174,6 +174,12 @@ public class Renderer {
             sb.append(i < widths.length - 1 ? mid : right);
         }
         return sb.toString();
+    }
+
+    private static final String HOME = System.getProperty("user.home");
+
+    private static String tildeHome(String s) {
+        return HOME != null && s.startsWith(HOME) ? "~" + s.substring(HOME.length()) : s;
     }
 
     /** Turn /Applications/Google Chrome.app/Contents/MacOS/Google Chrome -> Google Chrome */
