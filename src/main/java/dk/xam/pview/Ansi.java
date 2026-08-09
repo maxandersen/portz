@@ -10,12 +10,16 @@ import org.aesh.command.invocation.CommandInvocation;
 /**
  * Markup-based styled text using tamboui's BBCode-style parser.
  * Usage: Ansi.markup("[cyan]hello[/] [bold red]world[/]")
+ * Honors NO_COLOR env var (https://no-color.org/).
  */
 public class Ansi {
 
-    /** Parse tamboui markup to ANSI string. */
+    static final boolean NO_COLOR = System.getenv("NO_COLOR") != null;
+
+    /** Parse tamboui markup to ANSI string (or plain text if NO_COLOR). */
     public static String markup(String s) {
-        return textToAnsi(MarkupParser.parse(s));
+        Text parsed = MarkupParser.parse(s);
+        return NO_COLOR ? parsed.rawContent() : textToAnsi(parsed);
     }
 
     /** Render tamboui Text (with styled spans) to an ANSI escape string. */

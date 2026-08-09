@@ -22,12 +22,17 @@ import java.util.List;
 public class Renderer {
 
     private static final String HOME = System.getProperty("user.home");
-    private static final Style CYAN = Style.EMPTY.fg(Color.CYAN);
-    private static final Style GREEN = Style.EMPTY.fg(Color.GREEN);
-    private static final Style YELLOW = Style.EMPTY.fg(Color.YELLOW);
-    private static final Style RED = Style.EMPTY.fg(Color.RED);
-    private static final Style DIM = Style.EMPTY.dim();
-    private static final Style HEADER = Style.EMPTY.bold();
+    private static final Style CYAN = color(Style.EMPTY.fg(Color.CYAN));
+    private static final Style GREEN = color(Style.EMPTY.fg(Color.GREEN));
+    private static final Style YELLOW = color(Style.EMPTY.fg(Color.YELLOW));
+    private static final Style RED = color(Style.EMPTY.fg(Color.RED));
+    private static final Style DIM = color(Style.EMPTY.dim());
+    private static final Style HEADER = color(Style.EMPTY.bold());
+
+    /** Returns Style.EMPTY when NO_COLOR is set, otherwise the given style. */
+    private static Style color(Style s) {
+        return Ansi.NO_COLOR ? Style.EMPTY : s;
+    }
 
     public static void renderPortsTable(List<PortEntry> entries, boolean showAll, boolean group, CommandInvocation inv) {
         if (entries.isEmpty()) {

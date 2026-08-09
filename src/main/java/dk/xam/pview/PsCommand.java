@@ -26,8 +26,8 @@ public class PsCommand implements Command<CommandInvocation> {
     @Option(name = "all", hasValue = false, description = "Show all processes, not just dev processes")
     boolean showAll;
 
-    private static final Style HEADER = Style.EMPTY.bold();
-    private static final Style DIM = Style.EMPTY.dim();
+    private static final Style HEADER = Ansi.NO_COLOR ? Style.EMPTY : Style.EMPTY.bold();
+    private static final Style DIM = Ansi.NO_COLOR ? Style.EMPTY : Style.EMPTY.dim();
 
     @Override
     public CommandResult execute(CommandInvocation inv) {

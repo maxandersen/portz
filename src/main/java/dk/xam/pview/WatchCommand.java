@@ -43,7 +43,7 @@ public class WatchCommand implements Command<CommandInvocation> {
                                 String fw = entry.process().framework() != null ? entry.process().framework().displayName() : "Unknown";
                                 String proj = entry.process().projectName() != null ? entry.process().projectName() : entry.process().name();
                                 inv.println(Ansi.markup("[dim]%s[/] %s [cyan]:%d[/] started — %s / %s / %s".formatted(
-                                        ts, entry.process().status().symbol(), p, entry.process().name(), fw, proj)));
+                                        ts, entry.process().status().rawSymbol(), p, entry.process().name(), fw, proj)));
                             }
                         }
                     }

@@ -21,10 +21,12 @@ import java.util.ArrayList;
 
 public class DetailView {
 
-    private static final Style LABEL = Style.EMPTY.bold();
-    private static final Style DIM = Style.EMPTY.dim();
-    private static final Style CYAN = Style.EMPTY.fg(Color.CYAN);
-    private static final Style GREEN = Style.EMPTY.fg(Color.GREEN);
+    private static final Style LABEL = c(Style.EMPTY.bold());
+    private static final Style DIM = c(Style.EMPTY.dim());
+    private static final Style CYAN = c(Style.EMPTY.fg(Color.CYAN));
+    private static final Style GREEN = c(Style.EMPTY.fg(Color.GREEN));
+
+    private static Style c(Style s) { return Ansi.NO_COLOR ? Style.EMPTY : s; }
 
     public static void show(int port, CommandInvocation inv) throws Exception {
         var entries = Collector.collectAll(true);
