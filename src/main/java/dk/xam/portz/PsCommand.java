@@ -62,14 +62,9 @@ public class PsCommand implements Command<CommandInvocation> {
                 else nonDocker.add(e);
             }
 
-            // Build a pid→name lookup for parent resolution
-            var pidNames = new java.util.HashMap<Long, String>();
-            for (var e : unique) pidNames.put(e.pid(), Renderer.nameOf(e.process()));
-
             var header = Row.from(
                     Cell.from("PID").style(HEADER),
                     Cell.from("NAME").style(HEADER),
-                    Cell.from("PPID").style(HEADER),
                     Cell.from("CPU%").style(HEADER),
                     Cell.from("MEM").style(HEADER),
                     Cell.from("PROJECT").style(HEADER),
@@ -81,11 +76,9 @@ public class PsCommand implements Command<CommandInvocation> {
             var rows = new ArrayList<Row>();
             for (var e : nonDocker) {
                 double cpu = cpuMap.getOrDefault(e.pid(), 0.0);
-                String parentInfo = resolveParent(e.process().ppid(), pidNames);
                 rows.add(Row.from(
                         Cell.from(String.valueOf(e.pid())),
                         Cell.from(Renderer.nameOf(e.process())),
-                        Cell.from(parentInfo).style(DIM),
                         Cell.from("%.1f".formatted(cpu)),
                         Cell.from("%dM".formatted(e.process().memoryKb() / 1024)),
                         Cell.from(Renderer.projectOf(e.process())),
@@ -103,7 +96,6 @@ public class PsCommand implements Command<CommandInvocation> {
                         Cell.from("-"),
                         Cell.from("-"),
                         Cell.from("-"),
-                        Cell.from("-"),
                         Cell.from("🐳 Docker · %d processes".formatted(dockerCount)),
                         Cell.from("-"),
                         Cell.from("Container runtime").style(DIM)
@@ -117,7 +109,6 @@ public class PsCommand implements Command<CommandInvocation> {
                     .widths(
                             Constraint.max(Renderer.maxCol(nonDocker, e -> String.valueOf(e.pid()), 3)),
                             Constraint.max(Renderer.maxCol(nonDocker, e -> Renderer.nameOf(e.process()), 4)),
-                            Constraint.max(maxPpidCol(nonDocker, pidNames)),
                             Constraint.max(5),       // CPU%
                             Constraint.max(6),       // MEM
                             Constraint.max(Renderer.maxCol(nonDocker, e -> Renderer.projectOf(e.process()), 7)),
@@ -158,31 +149,6 @@ public class PsCommand implements Command<CommandInvocation> {
         } catch (Exception e) {
             return Map.of();
         }
-    }
-
-    private static int maxPpidCol(java.util.List<PortEntry> entries, java.util.Map<Long, String> pidNames) {
-        int max = 4; // "PPID" header
-        for (var e : entries) max = Math.max(max, dev.tamboui.text.CharWidth.of(resolveParent(e.process().ppid(), pidNames)));
-        return max;
-    }
-
-    /** Resolve parent PID to "pid:name" or just "pid" if name unknown. */
-    private static String resolveParent(long ppid, java.util.Map<Long, String> pidNames) {
-        if (ppid <= 1) return String.valueOf(ppid);
-        String name = pidNames.get(ppid);
-        if (name == null) {
-            // Try ProcessHandle for processes outside our collected set
-            name = ProcessHandle.of(ppid)
-                    .flatMap(ph -> ph.info().command())
-                    .map(c -> {
-                        int slash = c.lastIndexOf('/');
-                        int bslash = c.lastIndexOf('\\');
-                        int sep = Math.max(slash, bslash);
-                        return sep >= 0 ? c.substring(sep + 1) : c;
-                    })
-                    .orElse(null);
-        }
-        return name != null ? ppid + ":" + name : String.valueOf(ppid);
     }
 
     /** Strip binary path, show meaningful args (skip flags). */

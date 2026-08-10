@@ -52,7 +52,7 @@ public class DetailView {
                     Cell.from("🌿 " + proc.gitBranch()).style(GREEN)));
         infoRows.add(Row.from(Cell.from("Uptime:").style(LABEL), Cell.from(proc.uptime())));
         infoRows.add(Row.from(Cell.from("Memory:").style(LABEL), Cell.from("%.1f MB".formatted(proc.memoryMb()))));
-        infoRows.add(Row.from(Cell.from("Parent PID:").style(LABEL), Cell.from(String.valueOf(proc.ppid()))));
+        infoRows.add(Row.from(Cell.from("Parent PID:").style(LABEL), Cell.from(resolveParent(proc.ppid()))));
         infoRows.add(Row.from(Cell.from("Status:").style(LABEL), Renderer.statusCell(proc.status())));
 
         var infoTable = Table.builder()
@@ -112,5 +112,16 @@ public class DetailView {
         } else {
             inv.println(Ansi.markup("[dim]Cancelled.[/]"));
         }
+    }
+
+    private static String resolveParent(long ppid) {
+        if (ppid <= 1) return String.valueOf(ppid);
+        return ProcessHandle.of(ppid)
+                .flatMap(ph -> ph.info().command())
+                .map(c -> {
+                    int sep = Math.max(c.lastIndexOf('/'), c.lastIndexOf('\\'));
+                    return ppid + " (" + (sep >= 0 ? c.substring(sep + 1) : c) + ")";
+                })
+                .orElse(String.valueOf(ppid));
     }
 }
