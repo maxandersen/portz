@@ -40,6 +40,8 @@ public class Collector {
                     long uptimeSeconds = Platform.parseUptime(data.etime());
                     String cmdline = Platform.getProcessCmdline(pid);
                     if (cmdline.isEmpty()) cmdline = data.name();
+                    String commandBinary = ProcessHandle.of(pid)
+                            .flatMap(ph -> ph.info().command()).orElse(cmdline.split("\\s+")[0]);
                     // Derive a better display name from the full cmdline (ps comm truncates to 16 chars)
                     String displayName = extractDisplayName(cmdline, data.name());
 
@@ -53,7 +55,7 @@ public class Collector {
                     String gitBranch = cwd != null ? Platform.getGitBranch(cwd) : null;
 
                     enriched.put(pid, new ProcessInfo(
-                            pid, displayName, cmdline,
+                            pid, displayName, commandBinary, cmdline,
                             Platform.formatUptime(uptimeSeconds), uptimeSeconds,
                             data.rss(), data.ppid(), status,
                             cwd, projectName, detection.runtime(), detection.framework(), gitBranch
@@ -77,7 +79,7 @@ public class Collector {
                     }
                 }
 
-                if (showAll || (proc.isDevProcess() && !proc.isSystemProcess())) {
+                if (showAll || (proc.isDevProcess() && !proc.isSystemProcess() && !proc.isIdeTooling())) {
                     entries.add(new PortEntry(rp.port(), rp.pid(), rp.address(), proc));
                 }
             }

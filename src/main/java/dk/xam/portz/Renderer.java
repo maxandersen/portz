@@ -39,17 +39,21 @@ public class Renderer {
 
     /** Build a ports table without rendering. Used by watch mode and renderPortsTable. */
     static BuiltTable buildPortsTable(List<PortEntry> entries, boolean showAll, boolean group) {
-        return buildPortsTable(entries, showAll, group, List.of());
+        return buildPortsTable(entries, showAll, group, false, true, List.of(), Map.of());
+    }
+
+    static BuiltTable buildPortsTable(List<PortEntry> entries, boolean showAll, boolean group, boolean showParent, boolean compact) {
+        return buildPortsTable(entries, showAll, group, showParent, compact, List.of(), Map.of());
     }
 
     /** Build a ports table with optional ghost (recently dead) entries. */
     static BuiltTable buildPortsTable(List<PortEntry> entries, boolean showAll, boolean group,
-                                       List<PortEntry> ghosts) {
-        return buildPortsTable(entries, showAll, group, ghosts, Map.of());
+                                       List<PortEntry> ghosts, Map<Long, java.time.Instant> deathTimes) {
+        return buildPortsTable(entries, showAll, group, false, true, ghosts, deathTimes);
     }
 
     static BuiltTable buildPortsTable(List<PortEntry> entries, boolean showAll, boolean group,
-                                       List<PortEntry> ghosts, Map<Long, java.time.Instant> deathTimes) {
+                                       boolean showParent, boolean compact, List<PortEntry> ghosts, Map<Long, java.time.Instant> deathTimes) {
         // Merge live + ghost entries, sorted by port, for proper interleaving
         var ghostPids = new HashSet<Long>();
         ghosts.forEach(e -> ghostPids.add(e.pid()));
@@ -57,11 +61,16 @@ public class Renderer {
         allEntries.addAll(ghosts);
         allEntries.sort(java.util.Comparator.comparingInt(PortEntry::port));
 
-        var header = Row.from(
+        var headerCells = new ArrayList<Cell>();
+        headerCells.addAll(List.of(
                 Cell.from("PORT").style(HEADER), Cell.from("NAME").style(HEADER),
-                Cell.from("PID").style(HEADER), Cell.from("COMMAND").style(HEADER),
+                Cell.from("PID").style(HEADER)));
+        if (showParent) headerCells.add(Cell.from("PARENT").style(HEADER));
+        headerCells.addAll(List.of(
+                Cell.from("COMMAND").style(HEADER),
                 Cell.from("PROJECT").style(HEADER), Cell.from("STACK").style(HEADER),
-                Cell.from("UPTIME").style(HEADER), Cell.from("STATUS").style(HEADER));
+                Cell.from("UPTIME").style(HEADER), Cell.from("STATUS").style(HEADER)));
+        var header = Row.from(headerCells.toArray(Cell[]::new));
 
         var rows = new ArrayList<Row>();
         int totalLines = 0;
@@ -74,11 +83,16 @@ public class Renderer {
                 boolean dead = ghostPids.contains(first.pid());
                 boolean recent = !dead && first.process().uptimeSeconds() < 60;
                 String ports = g.stream().map(e -> ":" + e.port()).collect(java.util.stream.Collectors.joining("\n"));
-                var row = Row.from(
+                var cells = new ArrayList<Cell>();
+                cells.addAll(List.of(
                         Cell.from(Text.from(ports)).style(dead ? DEAD_ROW : CYAN), Cell.from(nameOf(first.process())),
-                        Cell.from(String.valueOf(first.pid())), Cell.from(tildeHome(first.process().command())).style(dead ? DEAD_ROW : DIM),
+                        Cell.from(String.valueOf(first.pid()))));
+                if (showParent) cells.add(Cell.from(resolveParent(first.process().ppid())));
+                cells.addAll(List.of(
+                        Cell.from(compact ? compactCommand(first.process()) : tildeHome(first.process().command())).style(dead ? DEAD_ROW : DIM),
                         Cell.from(projectOf(first.process())), Cell.from(frameworkOf(first.process())),
-                        Cell.from(dead ? deadTime(first.pid(), deathTimes) : first.process().uptime()), Cell.from(dead ? "✕" : first.process().status().rawSymbol()));
+                        Cell.from(dead ? deadTime(first.pid(), deathTimes) : first.process().uptime()), Cell.from(dead ? "✕" : first.process().status().rawSymbol())));
+                var row = Row.from(cells.toArray(Cell[]::new));
                 rows.add(dead ? row.style(DEAD_ROW) : recent ? row.style(NEW_ROW) : row);
                 totalLines += g.size();
             }
@@ -86,26 +100,37 @@ public class Renderer {
             for (var e : allEntries) {
                 boolean dead = ghostPids.contains(e.pid());
                 boolean recent = !dead && e.process().uptimeSeconds() < 60;
-                var row = Row.from(
+                var cells = new ArrayList<Cell>();
+                cells.addAll(List.of(
                         Cell.from(":" + e.port()).style(dead ? DEAD_ROW : CYAN), Cell.from(nameOf(e.process())),
-                        Cell.from(String.valueOf(e.pid())), Cell.from(tildeHome(e.process().command())).style(dead ? DEAD_ROW : DIM),
+                        Cell.from(String.valueOf(e.pid()))));
+                if (showParent) cells.add(Cell.from(resolveParent(e.process().ppid())));
+                cells.addAll(List.of(
+                        Cell.from(compact ? compactCommand(e.process()) : tildeHome(e.process().command())).style(dead ? DEAD_ROW : DIM),
                         Cell.from(projectOf(e.process())), Cell.from(frameworkOf(e.process())),
-                        Cell.from(dead ? deadTime(e.pid(), deathTimes) : e.process().uptime()), Cell.from(dead ? "✕" : e.process().status().rawSymbol()));
+                        Cell.from(dead ? deadTime(e.pid(), deathTimes) : e.process().uptime()), Cell.from(dead ? "✕" : e.process().status().rawSymbol())));
+                var row = Row.from(cells.toArray(Cell[]::new));
                 rows.add(dead ? row.style(DEAD_ROW) : recent ? row.style(NEW_ROW) : row);
                 totalLines++;
             }
         }
 
+        var widths = new ArrayList<Constraint>();
+        widths.addAll(List.of(
+                Constraint.max(maxCol(allEntries, e -> ":" + e.port(), 4)),
+                Constraint.max(Math.min(maxCol(allEntries, e -> nameOf(e.process()), 4), 25)),
+                Constraint.max(maxCol(allEntries, e -> String.valueOf(e.pid()), 3))));
+        if (showParent) widths.add(Constraint.max(maxCol(allEntries, e -> resolveParent(e.process().ppid()), 4)));
+        widths.addAll(List.of(
+                Constraint.fill(1),
+                Constraint.max(Math.min(maxCol(allEntries, e -> projectOf(e.process()), 7), 20)),
+                Constraint.max(maxCol(allEntries, e -> frameworkOf(e.process()), 9)),
+                Constraint.max(maxCol(allEntries, e -> e.process().uptime(), 6)),
+                Constraint.max(6)));
+
         var table = Table.builder()
                 .header(header).rows(rows)
-                .widths(Constraint.max(maxCol(allEntries, e -> ":" + e.port(), 4)),
-                        Constraint.max(maxCol(allEntries, e -> nameOf(e.process()), 4)),
-                        Constraint.max(maxCol(allEntries, e -> String.valueOf(e.pid()), 3)),
-                        Constraint.fill(1),
-                        Constraint.max(maxCol(allEntries, e -> projectOf(e.process()), 7)),
-                        Constraint.max(maxCol(allEntries, e -> frameworkOf(e.process()), 9)),
-                        Constraint.max(maxCol(allEntries, e -> e.process().uptime(), 6)),
-                        Constraint.max(6))
+                .widths(widths.toArray(Constraint[]::new))
                 .columnSpacing(1)
                 .block(Block.builder().borders(Borders.ALL).borderType(BorderType.ROUNDED).build())
                 .build();
@@ -113,7 +138,7 @@ public class Renderer {
         return new BuiltTable(table, totalLines + 3);
     }
 
-    public static void renderPortsTable(List<PortEntry> entries, boolean showAll, boolean group, CommandInvocation inv) {
+    public static void renderPortsTable(List<PortEntry> entries, boolean showAll, boolean group, boolean showParent, boolean compact, CommandInvocation inv) {
         if (entries.isEmpty()) {
             inv.println(Ansi.markup(showAll
                     ? "[yellow]No listening ports found.[/]"
@@ -121,7 +146,7 @@ public class Renderer {
             return;
         }
 
-        var built = buildPortsTable(entries, showAll, group);
+        var built = buildPortsTable(entries, showAll, group, showParent, compact);
         renderInline(built.table(), built.height(), inv);
 
         // Footer
@@ -132,7 +157,7 @@ public class Renderer {
                 ? "[cyan]%d[/] %s".formatted(portCount, portCount == 1 ? "port" : "ports")
                 : "[cyan]%d[/] ports across [cyan]%d[/] processes".formatted(portCount, processCount);
         inv.println(Ansi.markup(summary + " active" + filter));
-        inv.println(Ansi.markup("Run [dim]ports <number>[/] for details"));
+        inv.println(Ansi.markup("Run [dim]portz <number>[/] for details"));
     }
 
     public static void renderOrphanTable(List<PortEntry> orphans, CommandInvocation inv) {
@@ -241,11 +266,48 @@ public class Renderer {
         return HOME != null && s.startsWith(HOME) ? "~" + s.substring(HOME.length()) : s;
     }
 
-    private static String shortenProcessName(String name) {
-        if (name.contains("/")) {
-            int slash = name.lastIndexOf('/');
-            return slash >= 0 ? name.substring(slash + 1) : name;
+    /** Compact binary path + append args from full command. */
+    static String compactCommand(ProcessInfo p) {
+        String binary = compactPath(tildeHome(p.commandBinary()));
+        String args = p.command().length() > p.commandBinary().length()
+                ? p.command().substring(p.commandBinary().length()) : "";
+        return binary + args;
+    }
+
+    /** Shorten path directories to first char(s), keep filename: ~/.sdkman/candidates/java/25/bin/java → ~/.s/c/j/25/b/java */
+    static String compactPath(String path) {
+        char sep = path.contains("\\") ? '\\' : '/';
+        int lastSep = path.lastIndexOf(sep);
+        if (lastSep <= 0) return path;
+
+        String dir = path.substring(0, lastSep);
+        String file = path.substring(lastSep + 1);
+        var parts = dir.split(sep == '\\' ? "\\\\" : "/");
+        var sb = new StringBuilder();
+        for (int i = 0; i < parts.length; i++) {
+            if (i > 0) sb.append(sep);
+            String p = parts[i];
+            if (p.equals("~") || p.isEmpty()) { sb.append(p); continue; }
+            sb.append(p.startsWith(".") && p.length() > 1 ? p.substring(0, 2) : p.substring(0, 1));
         }
-        return name;
+        sb.append(sep).append(file);
+        return sb.toString();
+    }
+
+    static String resolveParent(long ppid) {
+        if (ppid <= 1) return String.valueOf(ppid);
+        return ProcessHandle.of(ppid)
+                .flatMap(ph -> ph.info().command())
+                .map(c -> {
+                    int sep = Math.max(c.lastIndexOf('/'), c.lastIndexOf('\\'));
+                    return ppid + " (" + (sep >= 0 ? c.substring(sep + 1) : c) + ")";
+                })
+                .orElse(String.valueOf(ppid));
+    }
+
+    private static String shortenProcessName(String name) {
+        // ponytail: handle both / and \ for cross-platform paths
+        int slash = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+        return slash >= 0 ? name.substring(slash + 1) : name;
     }
 }

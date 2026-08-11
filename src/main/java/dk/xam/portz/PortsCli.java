@@ -21,6 +21,13 @@ public class PortsCli implements Command<CommandInvocation> {
             description = "Group ports by process (default: true, use --no-group to expand)")
     boolean group;
 
+    @Option(name = "parent", hasValue = false, description = "Show parent PID column")
+    boolean parent;
+
+    @Option(name = "compact", hasValue = false, defaultValue = "true", negatable = true,
+            description = "Compact binary paths (default: true, use --no-compact for full paths)")
+    boolean compact;
+
     @Override
     public CommandResult execute(CommandInvocation inv) {
         try {
@@ -28,7 +35,7 @@ public class PortsCli implements Command<CommandInvocation> {
                 DetailView.show(port, inv);
             } else {
                 var entries = Collector.collectAll(showAll);
-                Renderer.renderPortsTable(entries, showAll, group, inv);
+                Renderer.renderPortsTable(entries, showAll, group, parent, compact, inv);
             }
             return CommandResult.SUCCESS;
         } catch (Exception e) {

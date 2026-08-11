@@ -115,13 +115,6 @@ public class DetailView {
     }
 
     private static String resolveParent(long ppid) {
-        if (ppid <= 1) return String.valueOf(ppid);
-        return ProcessHandle.of(ppid)
-                .flatMap(ph -> ph.info().command())
-                .map(c -> {
-                    int sep = Math.max(c.lastIndexOf('/'), c.lastIndexOf('\\'));
-                    return ppid + " (" + (sep >= 0 ? c.substring(sep + 1) : c) + ")";
-                })
-                .orElse(String.valueOf(ppid));
+        return Renderer.resolveParent(ppid);
     }
 }
