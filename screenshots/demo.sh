@@ -34,25 +34,37 @@ start_java_server() {
     return 1
 }
 
-# Helper: start a simple TCP listener using Java (available everywhere)
-start_listener() {
+# Listeners per runtime
+start_java_listener() {
     local port=$1 dir=$2 name=$3
-    cd "$dir"
-    # Use a tiny Java program to listen on a port
     cat > "$dir/Listener.java" <<JAVA
 import java.net.ServerSocket;
 public class Listener {
     public static void main(String[] args) throws Exception {
         var ss = new ServerSocket(Integer.parseInt(args[0]));
         System.out.println("Listening on port " + args[0]);
-        Thread.currentThread().join(); // block forever
+        Thread.currentThread().join();
     }
 }
 JAVA
     javac "$dir/Listener.java"
-    java -cp "$dir" Listener "$port" &
+    (cd "$dir" && java -cp . Listener "$port") &
     PIDS+=($!)
-    echo "  Started $name on :$port (PID $!)"
+    echo "  Started $name on :$port (PID $!) [java]"
+}
+
+start_node_listener() {
+    local port=$1 dir=$2 name=$3
+    (cd "$dir" && node -e "require('net').createServer(c=>c.end()).listen($port, ()=>console.log('Listening on port $port'))") &
+    PIDS+=($!)
+    echo "  Started $name on :$port (PID $!) [node]"
+}
+
+start_python_listener() {
+    local port=$1 dir=$2 name=$3
+    (cd "$dir" && python3 -c "import socket,time; s=socket.socket(); s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1); s.bind(('',${port})); s.listen(); print('Listening on port ${port}'); time.sleep(9999)") &
+    PIDS+=($!)
+    echo "  Started $name on :$port (PID $!) [python3]"
 }
 
 # --- Set up fake project directories with framework markers ---
@@ -110,11 +122,11 @@ git -C "$MICRONAUT_DIR" init -q 2>/dev/null && git -C "$MICRONAUT_DIR" checkout 
 # --- Start listeners ---
 echo "Starting demo servers..."
 
-start_listener 18080 "$QUARKUS_DIR" "Quarkus"
-start_listener 18081 "$SPRING_DIR" "Spring Boot"
-start_listener 13000 "$NEXT_DIR" "Next.js"
-start_listener 18000 "$FASTAPI_DIR" "FastAPI"
-start_listener 18082 "$MICRONAUT_DIR" "Micronaut"
+start_java_listener 18080 "$QUARKUS_DIR" "Quarkus"
+start_java_listener 18081 "$SPRING_DIR" "Spring Boot"
+start_node_listener 13000 "$NEXT_DIR" "Next.js"
+start_python_listener 18000 "$FASTAPI_DIR" "FastAPI"
+start_java_listener 18082 "$MICRONAUT_DIR" "Micronaut"
 
 # Wait for all listeners to be ready
 sleep 2
