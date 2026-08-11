@@ -207,6 +207,17 @@ public class Renderer {
         inv.println(buffer.toAnsiString());
     }
 
+    /** Render a table to SVG string. */
+    static String renderToSvg(Table table, int height, int width) {
+        var area = dev.tamboui.layout.Rect.of(width, height);
+        var buffer = dev.tamboui.buffer.Buffer.empty(area);
+        table.render(area, buffer, new TableState());
+        var sb = new StringBuilder();
+        var opts = new dev.tamboui.export.svg.SvgOptions().chrome(true);
+        dev.tamboui.export.Formats.SVG.encoder().encode(buffer, area, opts, sb);
+        return sb.toString();
+    }
+
     private static final java.util.logging.Logger AESH_LOGGER =
             java.util.logging.Logger.getLogger("org.aesh.terminal.tty.TerminalConnection");
 

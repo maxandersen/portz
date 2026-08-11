@@ -6,6 +6,9 @@ import org.aesh.command.CommandResult;
 import org.aesh.command.invocation.CommandInvocation;
 import org.aesh.command.option.Option;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 @CommandDefinition(name = "portz",
         description = "A beautiful CLI tool to inspect and manage processes listening on your machine's ports",
         groupCommands = { PsCommand.class, WatchCommand.class, CleanCommand.class, CompletionsCommand.class })
@@ -28,6 +31,12 @@ public class PortsCli implements Command<CommandInvocation> {
             description = "Compact binary paths (default: true, use --no-compact for full paths)")
     boolean compact;
 
+    @Option(name = "save", description = "Save output as SVG to the given file path")
+    String save;
+
+    @Option(name = "width", description = "Terminal width for SVG export (default: 120)", defaultValue = "120")
+    int width;
+
     @Override
     public CommandResult execute(CommandInvocation inv) {
         try {
@@ -35,7 +44,14 @@ public class PortsCli implements Command<CommandInvocation> {
                 DetailView.show(port, inv);
             } else {
                 var entries = Collector.collectAll(showAll);
-                Renderer.renderPortsTable(entries, showAll, group, parent, compact, inv);
+                if (save != null) {
+                    var built = Renderer.buildPortsTable(entries, showAll, group, parent, compact);
+                    String svg = Renderer.renderToSvg(built.table(), built.height(), width);
+                    Files.writeString(Path.of(save), svg);
+                    inv.println(Ansi.markup("Saved SVG to [cyan]%s[/]".formatted(save)));
+                } else {
+                    Renderer.renderPortsTable(entries, showAll, group, parent, compact, inv);
+                }
             }
             return CommandResult.SUCCESS;
         } catch (Exception e) {
