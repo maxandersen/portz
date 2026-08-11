@@ -6,7 +6,7 @@ import org.aesh.command.CommandResult;
 import org.aesh.command.invocation.CommandInvocation;
 import org.aesh.command.option.Option;
 
-@CommandDefinition(name = "ports",
+@CommandDefinition(name = "portz",
         description = "A beautiful CLI tool to inspect and manage processes listening on your machine's ports",
         groupCommands = { PsCommand.class, WatchCommand.class, CleanCommand.class, CompletionsCommand.class })
 public class PortsCli implements Command<CommandInvocation> {

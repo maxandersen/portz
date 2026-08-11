@@ -23,9 +23,9 @@ public class CompletionsCommand implements Command<CommandInvocation> {
 
             if (shell == null) shell = detectShell();
             var generator = ShellCompletionGenerator.forShell(shell);
-            String script = generator.generate(container.getParser(), "ports");
+            String script = generator.generate(container.getParser(), "portz");
 
-            // Print script to stdout so `ports completions zsh | source` works
+            // Print script to stdout so `portz completions zsh | source` works
             inv.print(script);
 
             // Usage hint to stderr so it doesn't pollute piped output
