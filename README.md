@@ -4,6 +4,8 @@ A beautiful CLI tool to inspect and manage processes listening on your machine's
 
 Java port of [port-viewer](https://github.com/iamEtornam/port-viewer) (Rust) — built with [Quarkus](https://quarkus.io), [aesh](https://github.com/aeshell/aesh), and [tamboui](https://tamboui.dev).
 
+![portz default view](screenshots/default.svg)
+
 ## Quick Start
 
 ```sh
@@ -23,9 +25,66 @@ jbang ports@maxandersen
 - **`portz clean`** — find and interactively kill orphaned/zombie dev processes
 - **`portz completion`** — generate shell completions (bash, zsh, fish, pwsh)
 
-### Smart Detection
+## Usage
 
-#### Frameworks (via `package.json`, `pom.xml`, `build.gradle`, or cmdline)
+```sh
+portz                     # list dev ports (filtered)
+portz --all               # list all ports including system services
+portz -p 8080             # detail view for port 8080
+portz ps                  # process view with CPU/memory
+portz watch               # live monitoring (Ctrl+C to exit)
+portz clean               # find and kill orphaned processes
+portz --no-group          # one row per port (no grouping)
+portz --parent            # show parent process column
+portz --no-compact        # show full binary paths
+portz --save out.svg      # export as SVG
+```
+
+### Default View
+
+By default, portz shows dev processes grouped by PID, with compact binary paths and framework detection:
+
+![portz default view](screenshots/default.svg)
+
+### Ungrouped View (`--no-group`)
+
+Expand grouped ports into individual rows:
+
+![portz no-group view](screenshots/no-group.svg)
+
+### Parent Process (`--parent`)
+
+Show which process spawned each listener:
+
+![portz parent view](screenshots/parent.svg)
+
+### Full Paths (`--no-compact`)
+
+Show full binary paths instead of compacted ones:
+
+![portz no-compact view](screenshots/no-compact.svg)
+
+### SVG Export (`--save`)
+
+Export any view as SVG for documentation or sharing:
+
+```sh
+portz --save output.svg --width 140
+```
+
+### Updating Screenshots
+
+Run the demo script to regenerate all screenshots with live framework detection:
+
+```sh
+./screenshots/demo.sh
+```
+
+This spins up Quarkus, Spring Boot, Next.js, FastAPI, and Micronaut listeners using their real runtimes, captures all views, and saves SVGs to `screenshots/`.
+
+## Smart Detection
+
+### Frameworks (via `package.json`, `pom.xml`, `build.gradle`, or cmdline)
 
 | Ecosystem | Detected Frameworks |
 |---|---|
@@ -35,7 +94,7 @@ jbang ports@maxandersen
 | Java | 🍃 Spring Boot, 🔮 Quarkus, 🔬 Micronaut |
 | Other | 🐹 Go, 🦀 Rust/Cargo |
 
-#### Docker Services (via image name)
+### Docker Services (via image name)
 
 | Service | Image match |
 |---|---|
@@ -49,12 +108,13 @@ jbang ports@maxandersen
 | 📨 Kafka | `kafka` |
 | ☁️ LocalStack | `localstack` |
 
-#### Process Classification
+### Process Filtering
 
 | Category | How it works |
 |---|---|
 | Dev process | Name matches: `node`, `python`, `java`, `go`, `cargo`, `ruby`, `mvn`, `gradle`, `npm`, `bun`, `deno`… or has a detected framework |
-| System process | Name matches: `Spotify`, `Chrome`, `Slack`, `Discord`, `sshd`, `launchd`… |
+| System process | Filtered out: `Spotify`, `Chrome`, `Slack`, `Discord`, `sshd`, `launchd`… |
+| IDE tooling | Filtered out: LSP servers and language tooling spawned by VS Code, IntelliJ, etc. (shown with `--all`) |
 | Status ● | Healthy — has a living parent process |
 | Status ◐ | Orphaned — parent is PID 1 (init/launchd) |
 | Status ✕ | Zombie — finished but not reaped |
@@ -62,24 +122,10 @@ jbang ports@maxandersen
 ### More
 
 - **Port grouping** — multiple ports per process collapsed into one row (`--no-group` to expand)
-- **Smart rendering** — terminal-width-aware tables, ANSI-aware column widths, path collapsing, `~` home shortening
+- **Path compaction** — `/usr/local/bin/java` → `/u/l/b/java`, `~/.sdkman/candidates/java/25/bin/java` → `~/.s/c/j/2/b/java` (`--no-compact` for full paths)
 - **Watch mode** — in-place redraw, green highlight for new processes (< 60s), red ghost rows for killed processes (5s fade)
 - **`NO_COLOR`** support — respects [no-color.org](https://no-color.org/) convention
 - **Cross-platform** — macOS, Linux, Windows (CWD via oshi FFM)
-
-## Usage
-
-```sh
-portz                     # list dev ports (filtered)
-portz --all               # list all ports including system services
-portz -p 8080             # detail view for port 8080
-portz ps                  # process view with CPU/memory
-portz ps --all            # all processes
-portz watch               # live monitoring (Ctrl+C to exit)
-portz clean               # find and kill orphaned processes
-portz completion zsh      # generate zsh completions
-portz --no-group          # one row per port (no grouping)
-```
 
 ## Install
 
@@ -117,13 +163,13 @@ portz completion fish > ~/.config/fish/completions/portz.fish
 | Component | Role |
 |---|---|
 | [Quarkus](https://quarkus.io) + [aesh](https://github.com/aeshell/aesh) | CLI framework, command parsing, shell I/O |
-| [tamboui](https://tamboui.dev) | ANSI-aware table rendering, InlineDisplay, BBCode markup |
+| [tamboui](https://tamboui.dev) | ANSI-aware table rendering, InlineDisplay, SVG export, BBCode markup |
 | [oshi](https://github.com/oshi/oshi) (FFM) | Windows process CWD via Foreign Function & Memory API |
 | Virtual threads | Concurrent process data collection |
 
 ## Credits
 
-Inspired by and ported from [port-viewer](https://github.com/iamEtornam/port-viewer) by [Etornam](https://github.com/iamEtornam) — a blazing-fast Rust CLI for port inspection. This Java port adds Java framework detection, tamboui-based rendering, port grouping, watch mode ghost rows, and cross-platform support via standard Java APIs.
+Inspired by and ported from [port-viewer](https://github.com/iamEtornam/port-viewer) by [Etornam](https://github.com/iamEtornam) — a blazing-fast Rust CLI for port inspection. This Java port adds framework detection, tamboui-based rendering, port grouping, watch mode ghost rows, SVG export, and cross-platform support via standard Java APIs.
 
 ## License
 

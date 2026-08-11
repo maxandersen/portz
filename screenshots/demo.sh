@@ -122,11 +122,11 @@ git -C "$MICRONAUT_DIR" init -q 2>/dev/null && git -C "$MICRONAUT_DIR" checkout 
 # --- Start listeners ---
 echo "Starting demo servers..."
 
-start_java_listener 18080 "$QUARKUS_DIR" "Quarkus"
-start_java_listener 18081 "$SPRING_DIR" "Spring Boot"
-start_node_listener 13000 "$NEXT_DIR" "Next.js"
-start_python_listener 18000 "$FASTAPI_DIR" "FastAPI"
-start_java_listener 18082 "$MICRONAUT_DIR" "Micronaut"
+start_java_listener 28080 "$QUARKUS_DIR" "Quarkus"
+start_java_listener 28081 "$SPRING_DIR" "Spring Boot"
+start_node_listener 23000 "$NEXT_DIR" "Next.js"
+start_python_listener 28000 "$FASTAPI_DIR" "FastAPI"
+start_java_listener 28082 "$MICRONAUT_DIR" "Micronaut"
 
 # Wait for all listeners to be ready
 sleep 2
