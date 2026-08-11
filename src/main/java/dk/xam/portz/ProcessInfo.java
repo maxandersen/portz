@@ -52,7 +52,7 @@ public record ProcessInfo(
     /** Display: "☕ Java · 🔮 Quarkus" or "☕ Java" or "-" */
     public String runtimeFrameworkDisplay() {
         if (runtime != null && framework != null)
-            return runtime.emoji() + " " + runtime.displayName() + "." + framework.emoji() + " " + framework.displayName();
+            return framework.emoji() + " " + framework.displayName();
         if (framework != null) return framework.emoji() + " " + framework.displayName();
         if (runtime != null) return runtime.emoji() + " " + runtime.displayName();
         return "-";
